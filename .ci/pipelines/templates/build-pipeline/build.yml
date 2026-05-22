@@ -1,6 +1,6 @@
 parameters:
   buildConfiguration: "Release"
-  dotNetVersion: "8.x"
+  dotNetVersion: "10.x"
   SMOKETESTS_ARTIFACT_NAME: "SmokeTests"
 
 jobs:

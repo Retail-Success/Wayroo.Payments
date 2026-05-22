@@ -106,10 +106,13 @@ stages:
           displayName: "Deploy CDK to ${{ variables.ENVIRONMENT }}"
           environment: ${{ variables.ENVIRONMENT }}
           dependsOn:
-            # TODO: Improve this dependency since this should only be dependent
-            # when a repo has lambdas; ideally this is handled more dynamically
-            # - UploadLambdas
+            - UploadLambdas
             - TagECRImage
+          condition: >
+            and(
+              in(dependencies.UploadLambdas.result, 'Succeeded', 'Skipped'),
+              in(dependencies.TagECRImage.result, 'Succeeded', 'Skipped')
+            )
           awsCredentials: ${{ variables.awsCredentialsAccount }}
           region: "$(REGION)"
           cdkArtifactName: "${{ variables.CDK_ARTIFACT_NAME }}"
@@ -167,6 +170,11 @@ stages:
           dependsOn:
             - UploadLambdas
             - TagECRImage
+          condition: >
+            and(
+              in(dependencies.UploadLambdas.result, 'Succeeded', 'Skipped'),
+              in(dependencies.TagECRImage.result, 'Succeeded', 'Skipped')
+            )
           awsCredentials: ${{ variables.awsCredentialsAccount }}
           region: "$(REGION)"
           cdkArtifactName: "${{ variables.CDK_ARTIFACT_NAME }}"
@@ -222,6 +230,11 @@ stages:
           dependsOn:
             - UploadLambdas
             - TagECRImage
+          condition: >
+            and(
+              in(dependencies.UploadLambdas.result, 'Succeeded', 'Skipped'),
+              in(dependencies.TagECRImage.result, 'Succeeded', 'Skipped')
+            )
           awsCredentials: ${{ variables.awsCredentialsAccount }}
           region: "$(REGION)"
           cdkArtifactName: "${{ variables.CDK_ARTIFACT_NAME }}"
