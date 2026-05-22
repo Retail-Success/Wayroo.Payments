@@ -3,6 +3,7 @@ parameters:
   displayName: ""
   environment: ""
   dependsOn: []
+  condition: "succeeded()"
   awsCredentials: ""
   region: ""
   cdkArtifactName: "CDK"
@@ -15,6 +16,7 @@ jobs:
     displayName: ${{ parameters.displayName }}
     environment: ${{ parameters.environment }}
     dependsOn: ${{ parameters.dependsOn }}
+    condition: ${{ parameters.condition }}
     strategy:
       runOnce:
         deploy:
