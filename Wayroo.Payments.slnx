@@ -2,51 +2,50 @@
 
     <!-- Marking files as part of the solution -->
     <Folder Name="/Solution Items/">
-        <File Path="nuget.config"/>
-        <File Path=".gitignore"/>
-        <File Path="README.md"/>
-        <File Path="components.json"/>
-        <File Path="Directory.Build.props"/>
-        <File Path="BannedSymbols.txt"/>
+        <File Path="nuget.config" />
+        <File Path=".gitignore" />
+        <File Path="README.md" />
+        <File Path="components.json" />
+        <File Path="Directory.Build.props" />
+        <File Path="BannedSymbols.txt" />
     </Folder>
+    <Folder Name="/Solution Items/.ci/" />
     <Folder Name="/Solution Items/.ci/pipelines/">
-        <File Path=".ci/pipelines/pipeline.yml"/>
+        <File Path=".ci/pipelines/pipeline.yml" />
     </Folder>
     <Folder Name="/Solution Items/.ci/pipelines/variables/">
-        <File Path=".ci/pipelines/variables/dev.yml"/>
-        <File Path=".ci/pipelines/variables/prod.yml"/>
-        <File Path=".ci/pipelines/variables/qa.yml"/>
-        <File Path=".ci/pipelines/variables/service.yml"/>
+        <File Path=".ci/pipelines/variables/dev.yml" />
+        <File Path=".ci/pipelines/variables/prod.yml" />
+        <File Path=".ci/pipelines/variables/qa.yml" />
+        <File Path=".ci/pipelines/variables/service.yml" />
     </Folder>
+    <Folder Name="/Solution Items/.ci/pipelines/templates/" />
     <Folder Name="/Solution Items/.ci/pipelines/templates/build-pipeline/">
-        <File Path=".ci/pipelines/templates/build-pipeline/build.yml"/>
-        <File Path=".ci/pipelines/templates/build-pipeline/build-docker-apis.yml"/>
-        <File Path=".ci/pipelines/templates/build-pipeline/discover-components.yml"/>
-        <File Path=".ci/pipelines/templates/build-pipeline/package-cdks.yml"/>
-        <File Path=".ci/pipelines/templates/build-pipeline/package-lambdas.yml"/>
-        <File Path=".ci/pipelines/templates/build-pipeline/package-sdks.yml"/>
+        <File Path=".ci/pipelines/templates/build-pipeline/build.yml" />
+        <File Path=".ci/pipelines/templates/build-pipeline/build-docker-apis.yml" />
+        <File Path=".ci/pipelines/templates/build-pipeline/discover-components.yml" />
+        <File Path=".ci/pipelines/templates/build-pipeline/package-cdks.yml" />
+        <File Path=".ci/pipelines/templates/build-pipeline/package-lambdas.yml" />
+        <File Path=".ci/pipelines/templates/build-pipeline/package-sdks.yml" />
     </Folder>
     <Folder Name="/Solution Items/.ci/pipelines/templates/deploy-pipeline/">
-        <File Path=".ci/pipelines/templates/deploy-pipeline/deploy-cdk.yml"/>
-        <File Path=".ci/pipelines/templates/deploy-pipeline/tag-ecr-image.yml"/>
-        <File Path=".ci/pipelines/templates/deploy-pipeline/upload-lambdas.yml"/>
+        <File Path=".ci/pipelines/templates/deploy-pipeline/deploy-cdk.yml" />
+        <File Path=".ci/pipelines/templates/deploy-pipeline/tag-ecr-image.yml" />
+        <File Path=".ci/pipelines/templates/deploy-pipeline/upload-lambdas.yml" />
     </Folder>
     <Folder Name="/Solution Items/.ci/pipelines/templates/publish-pipeline/">
-        <File Path=".ci/pipelines/templates/publish-pipeline/consolidate-api-metadata.yml"/>
-        <File Path=".ci/pipelines/templates/publish-pipeline/publish-sdks.yml"/>
-        <File Path=".ci/pipelines/templates/publish-pipeline/publish-to-ecr.yml"/>
-        <File Path=".ci/pipelines/templates/publish-pipeline/tag.yml"/>
+        <File Path=".ci/pipelines/templates/publish-pipeline/consolidate-api-metadata.yml" />
+        <File Path=".ci/pipelines/templates/publish-pipeline/publish-sdks.yml" />
+        <File Path=".ci/pipelines/templates/publish-pipeline/publish-to-ecr.yml" />
+        <File Path=".ci/pipelines/templates/publish-pipeline/tag.yml" />
     </Folder>
     <Folder Name="/Solution Items/.ci/pipelines/templates/test-pipeline/">
-        <File Path=".ci/pipelines/templates/test-pipeline/run-smoke-tests.yml"/>
+        <File Path=".ci/pipelines/templates/test-pipeline/run-smoke-tests.yml" />
     </Folder>
-
-    <Project
-            Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.csproj"/>
-    <Project
-            Path="Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure.csproj"/>
-    <Project
-            Path="Wayroo.Payments.Models/Wayroo.Payments.Models/Wayroo.Payments.Models.csproj"/>
-    <Project
-            Path="Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda.csproj"/>
+    <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.csproj" />
+    <Project Path="Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure.csproj" />
+    <Project Path="Wayroo.Payments.Models/Wayroo.Payments.Models/Wayroo.Payments.Models.csproj" />
+    <Project Path="Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda.csproj">
+        <Build Solution="Debug|*" Project="false" />
+    </Project>
 </Solution>
