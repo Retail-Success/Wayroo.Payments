@@ -1,0 +1,196 @@
+parameters:
+  region: "us-east-1"
+  ecrAwsCredentials: ""
+  artifactName: "DockerImages"
+  ecrRepositoryPrefix: ""
+
+jobs:
+  - job: PublishToECR
+    displayName: "Publish Docker Images to ECR (version + latest)"
+    condition: eq(stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasAPIs'], 'true')
+    steps:
+      - task: NuGetAuthenticate@1
+        displayName: "Authenticate to Azure Artifacts"
+
+      - task: DownloadPipelineArtifact@2
+        displayName: "Download Docker metadata"
+        inputs:
+          buildType: "current"
+          artifactName: "${{ parameters.artifactName }}-metadata"
+          targetPath: "$(Pipeline.Workspace)/docker-metadata"
+
+      - task: DownloadPipelineArtifact@2
+        displayName: "Download Docker images"
+        inputs:
+          buildType: "current"
+          artifactName: "${{ parameters.artifactName }}-images"
+          targetPath: "$(Pipeline.Workspace)/docker-images"
+
+      - task: AWSShellScript@1
+        displayName: "Load and push Docker images to ECR"
+        name: PublishImages
+        inputs:
+          awsCredentials: "${{ parameters.ecrAwsCredentials }}"
+          regionName: "${{ parameters.region }}"
+          scriptType: "inline"
+          inlineScript: |
+            # Set environment variables
+            export AWS_REGION="${{ parameters.region }}"
+            export ECR_PREFIX="${{ parameters.ecrRepositoryPrefix }}"
+            
+            # Authenticate Docker to ECR
+            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin $(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION}.amazonaws.com
+            
+            if [ $? -ne 0 ]; then
+              echo "Failed to authenticate to ECR"
+              exit 1
+            fi
+            
+            echo "Successfully authenticated to ECR"
+            
+            # Get AWS account and ECR registry
+            AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+            ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+            
+            echo "ECR Registry: ${ECR_REGISTRY}"
+            
+            # Check if metadata files exist
+            if [ ! -d "$(Pipeline.Workspace)/docker-metadata" ] || [ -z "$(ls -A $(Pipeline.Workspace)/docker-metadata/*.json 2>/dev/null)" ]; then
+              echo "No API components found to push."
+              exit 0
+            fi
+            
+            # Process each metadata file
+            for metadata_file in $(Pipeline.Workspace)/docker-metadata/*.json; do
+              echo "Processing metadata: ${metadata_file}"
+              
+              IMAGE_TAG=$(jq -r '.ImageTag' "${metadata_file}")
+              VERSION=$(jq -r '.Version' "${metadata_file}")
+              SERVICE_NAME=$(jq -r '.ServiceName' "${metadata_file}")
+              COMPONENT_NAME=$(jq -r '.ComponentShortName' "${metadata_file}")
+              COMPONENT_PATH=$(jq -r '.Path' "${metadata_file}")
+              
+              echo "========================================"
+              echo "Processing: ${IMAGE_TAG}"
+              echo "Version: ${VERSION}"
+              echo "========================================"
+              
+              # Construct ECR repository name using prefix.componentname format
+              COMPONENT_NAME_LOWER=$(echo "${COMPONENT_NAME}" | tr '[:upper:]' '[:lower:]')
+              
+              if [ -n "${ECR_PREFIX}" ]; then
+                ECR_REPO_NAME="${ECR_PREFIX}.${COMPONENT_NAME_LOWER}"
+              else
+                ECR_REPO_NAME="${COMPONENT_NAME_LOWER}"
+              fi
+              
+              ECR_REPO_URI="${ECR_REGISTRY}/${ECR_REPO_NAME}"
+              
+              echo "ECR Repository: ${ECR_REPO_NAME}"
+              
+              # Create ECR repository if it doesn't exist
+              echo "Ensuring ECR repository exists..."
+              if ! aws ecr describe-repositories --repository-names "${ECR_REPO_NAME}" --region "${AWS_REGION}" &>/dev/null; then
+                echo "Creating ECR repository: ${ECR_REPO_NAME}"
+                aws ecr create-repository \
+                  --repository-name "${ECR_REPO_NAME}" \
+                  --region "${AWS_REGION}" \
+                  --image-scanning-configuration scanOnPush=true \
+                  --tags "Key=Service,Value=${SERVICE_NAME}" "Key=Component,Value=${COMPONENT_NAME}"
+                
+                if [ $? -ne 0 ]; then
+                  echo "Failed to create ECR repository: ${ECR_REPO_NAME}"
+                  exit 1
+                fi
+              else
+                echo "ECR repository already exists: ${ECR_REPO_NAME}"
+              fi
+              
+              # Load pre-built Docker image from tar archive
+              IMAGE_ARCHIVE="$(Pipeline.Workspace)/docker-images/${IMAGE_TAG}.tar.zip"
+              echo "Loading Docker image from: ${IMAGE_ARCHIVE}"
+              
+              if [ ! -f "${IMAGE_ARCHIVE}" ]; then
+                echo "ERROR: Docker image archive not found: ${IMAGE_ARCHIVE}"
+                exit 1
+              fi
+              
+              # Decompress and load the image
+              echo "Decompressing image archive..."
+              unzip -q "${IMAGE_ARCHIVE}" -d "$(Pipeline.Workspace)/docker-images/"
+              
+              TAR_FILE="$(Pipeline.Workspace)/docker-images/${IMAGE_TAG}.tar"
+              echo "Loading Docker image from tar..."
+              docker load -i "${TAR_FILE}"
+              
+              if [ $? -ne 0 ]; then
+                echo "Failed to load Docker image: ${IMAGE_TAG}"
+                exit 1
+              fi
+              
+              echo "Successfully loaded pre-built image: ${IMAGE_TAG}:${VERSION}"
+              
+              # Verify image was loaded
+              docker images | grep "${IMAGE_TAG}"
+              
+              # Check if version tag already exists in ECR
+              echo "Checking if ${ECR_REPO_URI}:${VERSION} already exists..."
+              VERSION_EXISTS=$(aws ecr describe-images \
+                --repository-name "${ECR_REPO_NAME}" \
+                --region "${AWS_REGION}" \
+                --image-ids imageTag="${VERSION}" \
+                --query 'imageDetails[0].imageTags' \
+                --output text 2>/dev/null || echo "")
+              
+              if [ -n "${VERSION_EXISTS}" ]; then
+                echo "========================================"
+                echo "Image ${ECR_REPO_URI}:${VERSION} already exists in ECR"
+                echo "Skipping push for version tag (idempotent operation)"
+                echo "========================================"
+              else
+                # Tag and push version
+                echo "Tagging image for ECR (version)..."
+                docker tag "${IMAGE_TAG}:${VERSION}" "${ECR_REPO_URI}:${VERSION}"
+                
+                echo "Pushing ${ECR_REPO_URI}:${VERSION}..."
+                docker push "${ECR_REPO_URI}:${VERSION}"
+                
+                if [ $? -ne 0 ]; then
+                  echo "Failed to push ${ECR_REPO_URI}:${VERSION}"
+                  exit 1
+                fi
+                
+                echo "Successfully pushed: ${ECR_REPO_URI}:${VERSION}"
+              fi
+              
+              # Always update latest tag (it should point to most recent version)
+              echo "Tagging image for ECR (latest)..."
+              docker tag "${IMAGE_TAG}:${VERSION}" "${ECR_REPO_URI}:latest"
+              
+              echo "Pushing ${ECR_REPO_URI}:latest..."
+              docker push "${ECR_REPO_URI}:latest"
+              
+              if [ $? -ne 0 ]; then
+                echo "Failed to push ${ECR_REPO_URI}:latest"
+                exit 1
+              fi
+              
+              echo "Successfully pushed: ${ECR_REPO_URI}:latest"
+              
+              # Store ECR info for downstream stages
+              mkdir -p "$(Build.ArtifactStagingDirectory)/ecr-info"
+              echo "${ECR_REPO_URI}" > "$(Build.ArtifactStagingDirectory)/ecr-info/${IMAGE_TAG}-repo.txt"
+              echo "${VERSION}" > "$(Build.ArtifactStagingDirectory)/ecr-info/${IMAGE_TAG}-version.txt"
+            done
+            
+            echo "========================================"
+            echo "All Docker images published to ECR successfully"
+            echo "Images tagged with version and latest only"
+            echo "Environment-specific tags will be added during deployment"
+            echo "======================================="
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish ECR info for deployment stages"
+        inputs:
+          targetPath: "$(Build.ArtifactStagingDirectory)/ecr-info"
+          artifact: "ECR-Info"

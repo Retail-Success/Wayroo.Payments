@@ -1,0 +1,20 @@
+{
+  "Wayroo.Payments.Models": {
+    "path": "Wayroo.Payments.Models/Wayroo.Payments.Models"
+  },
+  "Wayroo.Payments.DataAccess": {
+    "path": "Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess"
+  },
+  "Wayroo.Payments.Infrastructure": {
+    "path": "Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure",
+    "artifactName": "Wayroo.Payments.Infrastructure",
+    "type": "infrastructure"
+  },
+  "Wayroo.Payments.Processor.Lambda": {
+    "path": "Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda",
+    "artifactName": "wayroo-payments-processor",
+    "serviceName": "WayrooPayments",
+    "componentName": "ProcessorLambda",
+    "type": "lambda"
+  }
+}

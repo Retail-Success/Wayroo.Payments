@@ -1,0 +1,50 @@
+parameters:
+  buildConfiguration: "Release"
+  semVerVersionForBuild: "1.0.$(Build.BuildNumber)"
+  artifactName: "Libraries"
+
+jobs:
+  - job: PackageLibraries
+    displayName: "Package ${{ parameters.artifactName }} to Azure Artifacts"
+    dependsOn: DiscoverComponents
+    variables:
+      hasLibraries: $[ dependencies.DiscoverComponents.outputs['ParseComponents.hasLibraries'] ]
+      librariesJson: $[ dependencies.DiscoverComponents.outputs['ParseComponents.librariesJson'] ]
+    condition: eq(dependencies.DiscoverComponents.outputs['ParseComponents.hasLibraries'], 'true')
+    steps:
+      - task: NuGetAuthenticate@1
+        displayName: "Authenticate to Azure Artifacts"
+
+      - task: PowerShell@2
+        displayName: "Package libraries from discovery"
+        name: ProcessLibraries
+        inputs:
+          targetType: "inline"
+          script: |
+            # Load library data from discovery
+            $librariesJson = '$(librariesJson)'
+            $libraries = $librariesJson | ConvertFrom-Json
+
+            Write-Host "Packaging $($libraries.Count) library/libraries..."
+
+            foreach ($library in $libraries) {
+              Write-Host "Processing library: $($library.Name)"
+              $projectPath = "$(Build.SourcesDirectory)/$($library.Path)/$($library.Name).csproj"
+              
+              # Build and package the project
+              dotnet pack "$projectPath" --configuration ${{ parameters.buildConfiguration }} --output "$(Build.ArtifactStagingDirectory)" -p:PackageVersion=${{ parameters.semVerVersionForBuild }}
+              
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Failed to package library: $($library.Name)"
+                exit 1
+              }
+            }
+
+            Write-Host "All libraries packaged successfully"
+            Write-Host "##vso[task.setvariable variable=hasLibraries;isOutput=true]true"
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish ${{ parameters.artifactName }} to Azure Artifacts"
+        inputs:
+          targetPath: "$(Build.ArtifactStagingDirectory)"
+          artifact: "${{ parameters.artifactName }}"

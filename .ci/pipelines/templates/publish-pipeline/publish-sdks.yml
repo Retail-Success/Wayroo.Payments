@@ -1,0 +1,44 @@
+parameters:
+  artifactName: "Libraries"
+
+jobs:
+  - job: PublishLibraries
+    displayName: "Publish ${{ parameters.artifactName }}"
+    dependsOn:
+      - version
+    condition: eq(stageDependencies.CI.PackageLibraries.outputs['ProcessLibraries.hasLibraries'], 'true')
+    steps:
+      - checkout: none
+      - task: UseDotNet@2
+        displayName: "Ensure .NET SDK available"
+        inputs:
+          packageType: "sdk"
+          version: "$(DotNetVersion)"
+
+      - task: NuGetAuthenticate@1
+        displayName: "Authenticate to Azure Artifacts"
+
+      - download: current
+        displayName: "Download Artifact: ${{ parameters.artifactName }}"
+        artifact: ${{ parameters.artifactName }}
+        patterns: |
+          **/*.nupkg
+          **/*.snupkg
+
+      - pwsh: |
+          $ErrorActionPreference = 'Stop'
+          $source = "$(NUGET_FEED_URL)"
+
+          Write-Host "Pushing .nupkg files to $source"
+          Get-ChildItem -Recurse -Filter *.nupkg | ForEach-Object {
+            Write-Host "Pushing $($_.FullName)"
+            dotnet nuget push $_.FullName --source $source --api-key AzureArtifacts --skip-duplicate
+          }
+
+          Write-Host "Pushing .snupkg files to $source"
+          Get-ChildItem -Recurse -Filter *.snupkg | ForEach-Object {
+            Write-Host "Pushing symbols $($_.FullName)"
+            dotnet nuget push $_.FullName --source $source --api-key AzureArtifacts --skip-duplicate
+          }
+        displayName: "Push ${{ parameters.artifactName }} to Azure Artifacts"
+        workingDirectory: $(Pipeline.Workspace)/${{ parameters.artifactName }}

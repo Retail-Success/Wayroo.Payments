@@ -1,0 +1,119 @@
+parameters:
+  dependsOn: []
+
+jobs:
+  - job: ConsolidateAPIMetadata
+    displayName: "Consolidate API Metadata for CDK Deployment"
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: eq(stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasAPIs'], 'true')
+    steps:
+      - task: DownloadPipelineArtifact@2
+        displayName: "Download ECR Info"
+        inputs:
+          buildType: "current"
+          artifactName: "ECR-Info"
+          targetPath: "$(Pipeline.Workspace)/ecr-info"
+
+      - task: DownloadPipelineArtifact@2
+        displayName: "Download Docker Metadata"
+        inputs:
+          buildType: "current"
+          artifactName: "DockerImages-metadata"
+          targetPath: "$(Pipeline.Workspace)/docker-metadata"
+
+      - task: PowerShell@2
+        displayName: "Consolidate API metadata into single manifest"
+        name: ConsolidateMetadata
+        inputs:
+          targetType: "inline"
+          script: |
+            Write-Host "========================================"
+            Write-Host "Consolidating API Metadata"
+            Write-Host "========================================"
+            
+            # Create output directory
+            $manifestDir = "$(Build.ArtifactStagingDirectory)/api-manifest"
+            New-Item -ItemType Directory -Force -Path $manifestDir | Out-Null
+            
+            # Initialize API manifest array
+            $apiManifest = @()
+            
+            # Check if docker metadata exists
+            $metadataDir = "$(Pipeline.Workspace)/docker-metadata"
+            if (-not (Test-Path $metadataDir)) {
+              Write-Host "No Docker metadata found. Creating empty manifest."
+              $apiManifest = @()
+            } else {
+              # Process each metadata file
+              foreach ($metadataFile in Get-ChildItem -Path $metadataDir -Filter "*.json") {
+                Write-Host "Processing: $($metadataFile.Name)"
+                
+                $metadata = Get-Content -Path $metadataFile.FullName | ConvertFrom-Json
+                $imageTag = $metadata.ImageTag
+                
+                # Read ECR repository info
+                $ecrRepoFile = "$(Pipeline.Workspace)/ecr-info/${imageTag}-repo.txt"
+                if (-not (Test-Path $ecrRepoFile)) {
+                  Write-Warning "ECR repository info not found for: ${imageTag}"
+                  continue
+                }
+                
+                $ecrRepoUri = Get-Content -Path $ecrRepoFile -Raw
+                $ecrRepoUri = $ecrRepoUri.Trim()
+                
+                # Parse ECR URI to extract account ID, region, and repo name
+                # Format: 123456789012.dkr.ecr.us-east-1.amazonaws.com/wayroo.notification
+                if ($ecrRepoUri -match '^(\d+)\.dkr\.ecr\.([^.]+)\.amazonaws\.com/(.+)$') {
+                  $ecrAccountId = $Matches[1]
+                  $ecrRegion = $Matches[2]
+                  $ecrRepoName = $Matches[3]
+                  
+                  # Create API component entry
+                  $apiComponent = [PSCustomObject]@{
+                    ComponentName = $metadata.ComponentName
+                    ServiceName = $metadata.ServiceName
+                    ComponentShortName = $metadata.ComponentShortName
+                    ECRRepositoryName = $ecrRepoName
+                    ECRAccountId = $ecrAccountId
+                    ECRRegion = $ecrRegion
+                    ImageTag = $imageTag
+                  }
+                  
+                  $apiManifest += $apiComponent
+                  
+                  Write-Host "  Component: $($metadata.ComponentName)"
+                  Write-Host "  Service: $($metadata.ServiceName)"
+                  Write-Host "  ECR Repository: ${ecrRepoName}"
+                  Write-Host "  ECR Account: ${ecrAccountId}"
+                  Write-Host "  ECR Region: ${ecrRegion}"
+                } else {
+                  Write-Warning "Could not parse ECR URI: ${ecrRepoUri}"
+                }
+              }
+            }
+            
+            # Convert to JSON and save
+            $manifestJson = $apiManifest | ConvertTo-Json -Depth 10 -Compress
+            $manifestFile = Join-Path $manifestDir "apis-manifest.json"
+            
+            # Handle empty array case
+            if ($apiManifest.Count -eq 0) {
+              $manifestJson = "[]"
+            }
+            
+            $manifestJson | Out-File -FilePath $manifestFile -Encoding utf8 -NoNewline
+            
+            Write-Host "========================================"
+            Write-Host "Consolidated $($apiManifest.Count) API component(s)"
+            Write-Host "Manifest file: ${manifestFile}"
+            Write-Host "========================================"
+            Write-Host "Manifest content:"
+            Write-Host $manifestJson
+            Write-Host "========================================"
+          pwsh: true
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish API Manifest"
+        inputs:
+          targetPath: "$(Build.ArtifactStagingDirectory)/api-manifest"
+          artifact: "API-Manifest"

@@ -1,0 +1,141 @@
+jobs:
+  - job: DiscoverComponents
+    displayName: "Discover Components from components.json"
+    steps:
+      - task: PowerShell@2
+        displayName: "Parse components.json and set output variables"
+        name: ParseComponents
+        inputs:
+          targetType: "inline"
+          script: |
+            $componentsPath = "$(Build.SourcesDirectory)/components.json"
+            
+            if (-not (Test-Path $componentsPath)) {
+              Write-Host "##vso[task.logissue type=error]components.json not found at $componentsPath"
+              exit 1
+            }
+            
+            Write-Host "Parsing components.json..."
+            $json = Get-Content -Raw -Path $componentsPath | ConvertFrom-Json
+            
+            # Initialize collections
+            $libraries = @()
+            $lambdas = @()
+            $apis = @()
+            $infrastructure = @()
+            $buildTimeTests = @()
+            $smokeTests = @()
+            
+            # Parse each component
+            foreach ($componentProp in $json.PSObject.Properties) {
+              $componentName = $componentProp.Name
+              $component = $componentProp.Value
+              $componentType = $component.type
+              
+              Write-Host "Processing component: $componentName (type: $componentType)"
+              
+              # Categorize by type
+              switch ($componentType) {
+                "library" {
+                  $libraries += [pscustomobject]@{
+                    Name = $componentName
+                    Path = $component.path
+                  }
+                }
+                "lambda" {
+                  $lambdas += [pscustomobject]@{
+                    Name = $componentName
+                    Path = $component.path
+                    ServiceName = $component.serviceName
+                    ComponentName = $component.componentName
+                  }
+                }
+                "api" {
+                  $apis += [pscustomobject]@{
+                    Name = $componentName
+                    Path = $component.path
+                    ServiceName = $component.serviceName
+                    ComponentName = $component.componentName
+                  }
+                }
+                "infrastructure" {
+                  $infrastructure += [pscustomobject]@{
+                    Name = $componentName
+                    Path = $component.path
+                  }
+                }
+              }
+              
+              # Parse tests
+              if ($null -ne $component.tests) {
+                foreach ($testProp in $component.tests.PSObject.Properties) {
+                  $testName = $testProp.Name
+                  $test = $testProp.Value
+                  $testPath = $test.path
+                  $testType = $test.type
+                  
+                  # Find the .csproj file
+                  $projectDir = Join-Path "$(Build.SourcesDirectory)" $testPath
+                  if (Test-Path $projectDir) {
+                    $projFiles = Get-ChildItem -Path $projectDir -Filter *.csproj -File -ErrorAction SilentlyContinue
+                    if ($projFiles) {
+                      $projectCsproj = $projFiles[0].FullName
+                      
+                      $testInfo = [pscustomobject]@{
+                        Name = $testName
+                        Path = $testPath
+                        ProjectFile = $projectCsproj
+                        ParentComponent = $componentName
+                      }
+                      
+                      switch ($testType) {
+                        "smoke-tests" { $smokeTests += $testInfo }
+                        default  { $buildTimeTests += $testInfo }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            
+            # Output summary
+            Write-Host "========================================="
+            Write-Host "Component Discovery Summary"
+            Write-Host "========================================="
+            Write-Host "Libraries: $($libraries.Count)"
+            Write-Host "Lambdas: $($lambdas.Count)"
+            Write-Host "APIs: $($apis.Count)"
+            Write-Host "Infrastructure: $($infrastructure.Count)"
+            Write-Host "Build Time Tests: $($buildTimeTests.Count)"
+            Write-Host "Smoke Tests: $($smokeTests.Count)"
+            Write-Host "========================================="
+            
+            # Set boolean flags for conditional job execution
+            Write-Host "##vso[task.setvariable variable=hasLibraries;isOutput=true]$($libraries.Count -gt 0)"
+            Write-Host "##vso[task.setvariable variable=hasLambdas;isOutput=true]$($lambdas.Count -gt 0)"
+            Write-Host "##vso[task.setvariable variable=hasAPIs;isOutput=true]$($apis.Count -gt 0)"
+            Write-Host "##vso[task.setvariable variable=hasInfrastructure;isOutput=true]$($infrastructure.Count -gt 0)"
+            Write-Host "##vso[task.setvariable variable=hasBuildTimeTests;isOutput=true]$($buildTimeTests.Count -gt 0)"
+            Write-Host "##vso[task.setvariable variable=hasSmokeTests;isOutput=true]$($smokeTests.Count -gt 0)"
+            
+            # Convert to JSON and set as output variables (for jobs that need detailed data)
+            $librariesJson = if ($libraries.Count -gt 0) { $libraries | ConvertTo-Json -Compress -Depth 10 } else { "[]" }
+            $lambdasJson = if ($lambdas.Count -gt 0) { $lambdas | ConvertTo-Json -Compress -Depth 10 } else { "[]" }
+            $apisJson = if ($apis.Count -gt 0) { $apis | ConvertTo-Json -Compress -Depth 10 } else { "[]" }
+            $infrastructureJson = if ($infrastructure.Count -gt 0) { $infrastructure | ConvertTo-Json -Compress -Depth 10 } else { "[]" }
+            
+            Write-Host "##vso[task.setvariable variable=librariesJson;isOutput=true]$librariesJson"
+            Write-Host "##vso[task.setvariable variable=lambdasJson;isOutput=true]$lambdasJson"
+            Write-Host "##vso[task.setvariable variable=apisJson;isOutput=true]$apisJson"
+            Write-Host "##vso[task.setvariable variable=infrastructureJson;isOutput=true]$infrastructureJson"
+            
+            # For tests, use delimiter-separated strings (more reliable for cross-job communication)
+            $sep = ';;'
+            $buildTimeTestsStr = if ($buildTimeTests.Count -gt 0) { ($buildTimeTests | ForEach-Object { $_.ProjectFile }) -join $sep } else { "" }
+            $smokeTestsStr = if ($smokeTests.Count -gt 0) { ($smokeTests | ForEach-Object { $_.ProjectFile }) -join $sep } else { "" }
+            
+            Write-Host "##vso[task.setvariable variable=buildTimeTestProjects;isOutput=true]$buildTimeTestsStr"
+            Write-Host "##vso[task.setvariable variable=smokeTestProjects;isOutput=true]$smokeTestsStr"
+            
+            Write-Host "Component discovery completed successfully"
+          pwsh: true

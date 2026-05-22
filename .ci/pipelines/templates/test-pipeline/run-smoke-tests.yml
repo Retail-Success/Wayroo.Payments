@@ -1,0 +1,131 @@
+parameters:
+  jobName: "RunSmokeTests"
+  displayName: ""
+  environment: ""
+  dependsOn: []
+  condition: "succeeded()"
+  awsCredentials: ""
+  region: ""
+  artifactName: "SmokeTests"
+  dotnetVersion: "8.x"
+  testRunTitle: "Smoke Tests"
+  assumeRoleArn: ""
+
+jobs:
+  - job: ${{ parameters.jobName }}
+    displayName: ${{ parameters.displayName }}
+    dependsOn: ${{ parameters.dependsOn }}
+    condition: ${{ parameters.condition }}
+    steps:
+      - download: current
+        artifact: ${{ parameters.artifactName }}
+        displayName: "Downloading Binaries for ${{ parameters.testRunTitle }}"
+
+      - task: UseDotNet@2
+        displayName: use dotnet ${{ parameters.dotnetVersion }}
+        inputs:
+          packageType: "sdk"
+          version: ${{ parameters.dotnetVersion }}
+
+      - task: AWSShellScript@1
+        displayName: "Load AWS Credentials for ${{ parameters.testRunTitle }}"
+        inputs:
+          awsCredentials: ${{ parameters.awsCredentials }}
+          regionName: ${{ parameters.region }}
+          scriptType: inline
+          inlineScript: |
+            ASSUME_ROLE_ARN='${{ parameters.assumeRoleArn }}'
+
+            if [ -n "$ASSUME_ROLE_ARN" ]; then
+              echo "Assuming role: $ASSUME_ROLE_ARN"
+              TEMP=$(aws sts assume-role --role-arn "$ASSUME_ROLE_ARN" --role-session-name AzDO-SmokeTests)
+              export AWS_ACCESS_KEY_ID=$(echo $TEMP | jq -r '.Credentials.AccessKeyId')
+              export AWS_SECRET_ACCESS_KEY=$(echo $TEMP | jq -r '.Credentials.SecretAccessKey')
+              export AWS_SESSION_TOKEN=$(echo $TEMP | jq -r '.Credentials.SessionToken')
+            else
+              echo "Using session token from service connection"
+              TEMP=$(aws sts get-session-token)
+              export AWS_ACCESS_KEY_ID=$(echo $TEMP | jq -r '.Credentials.AccessKeyId')
+              export AWS_SECRET_ACCESS_KEY=$(echo $TEMP | jq -r '.Credentials.SecretAccessKey')
+              export AWS_SESSION_TOKEN=$(echo $TEMP | jq -r '.Credentials.SessionToken')
+            fi
+
+            # Log the credentials (first few characters only for security)
+            echo "Access Key ID: ${AWS_ACCESS_KEY_ID:0:5}..."
+            echo "Secret Access Key: ${AWS_SECRET_ACCESS_KEY:0:5}..."
+            echo "Session Token: ${AWS_SESSION_TOKEN:0:5}..."
+
+            # Save to the job-level variables as secrets
+            echo "##vso[task.setvariable variable=AWS_ACCESS_KEY_ID;issecret=true]$(echo $AWS_ACCESS_KEY_ID)"
+            echo "##vso[task.setvariable variable=AWS_SECRET_ACCESS_KEY;issecret=true]$(echo $AWS_SECRET_ACCESS_KEY)"
+            echo "##vso[task.setvariable variable=AWS_SESSION_TOKEN;issecret=true]$(echo $AWS_SESSION_TOKEN)"
+
+      - task: PowerShell@2
+        displayName: "test • ${{ parameters.testRunTitle }} (components.json)"
+        inputs:
+          targetType: inline
+          script: |
+            $root = "$(Pipeline.Workspace)/${{ parameters.artifactName }}"
+            if (-not (Test-Path $root)) {
+              Write-Host "##vso[task.logissue type=error]${{ parameters.testRunTitle }} artifact not found at $root"
+              exit 1
+            }
+            $manifestPath = Join-Path $root '_manifest.json'
+            $assemblies = @()
+            if (Test-Path $manifestPath) {
+              try {
+                $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
+                if ($manifest) {
+                  $fromManifest = @()
+                  foreach ($entry in $manifest) {
+                    if ($null -ne $entry.assembly -and -not [string]::IsNullOrWhiteSpace([string]$entry.assembly)) {
+                      $full = Join-Path $root ([string]$entry.assembly)
+                      if (Test-Path $full) {
+                        $fromManifest += $full
+                      } else {
+                        Write-Host "##vso[task.logissue type=warning]Assembly from manifest not found: $full"
+                      }
+                    }
+                  }
+                  if ($fromManifest.Count -gt 0) { $assemblies = $fromManifest }
+                }
+              } catch {
+                Write-Host "##vso[task.logissue type=error]Failed to parse manifest at $manifestPath. Error: $_"
+                exit 1
+              }
+            } else {
+              Write-Host "##vso[task.logissue type=error]Manifest not found at $manifestPath. Build step should have produced it."
+              exit 1
+            }
+            if (-not $assemblies -or $assemblies.Count -eq 0) {
+              Write-Host "##vso[task.logissue type=error]No smoke test assemblies resolved from manifest."
+              exit 1
+            }
+            $failed = 0
+            foreach ($asm in $assemblies) {
+              Write-Host "Running ${{ parameters.testRunTitle }} in $asm"
+              $asmDir = Split-Path $asm -Parent
+              $resultsDir = Join-Path $asmDir 'TestResults'
+              New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+              dotnet test "$asm" --no-build --logger "trx;LogFileName=smoke.trx" --results-directory "$resultsDir" --verbosity normal
+              if ($LASTEXITCODE -ne 0) { $failed++ }
+            }
+            if ($failed -gt 0) {
+              Write-Host "##vso[task.logissue type=error]$failed smoke test run(s) failed."
+              exit 1
+            }
+        env:
+          AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+          AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+          AWS_SESSION_TOKEN: $(AWS_SESSION_TOKEN)
+          ENVIRONMENT: ${{ parameters.environment }}
+
+      - task: PublishTestResults@2
+        displayName: "Publish ${{ parameters.testRunTitle }} Results"
+        condition: succeededOrFailed()
+        inputs:
+          testResultsFormat: "VSTest"
+          testResultsFiles: "**/smoke.trx"
+          searchFolder: "$(Pipeline.Workspace)/${{ parameters.artifactName }}"
+          mergeTestResults: true
+          testRunTitle: ${{ parameters.testRunTitle }}

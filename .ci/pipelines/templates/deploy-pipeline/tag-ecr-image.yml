@@ -1,0 +1,131 @@
+parameters:
+  environment: ""
+  region: "us-east-1"
+  ecrAwsCredentials: ""
+  ecrRepositoryPrefix: ""
+
+jobs:
+  - job: TagECRImage
+    displayName: "Tag ECR Image for ${{ parameters.environment }}"
+    condition: eq(stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasAPIs'], 'true')
+    steps:
+      - task: DownloadPipelineArtifact@2
+        displayName: "Download ECR info"
+        inputs:
+          buildType: "current"
+          artifactName: "ECR-Info"
+          targetPath: "$(Pipeline.Workspace)/ecr-info"
+
+      - task: AWSShellScript@1
+        displayName: "Tag ECR images with environment tag"
+        name: TagImages
+        inputs:
+          awsCredentials: "${{ parameters.ecrAwsCredentials }}"
+          regionName: "${{ parameters.region }}"
+          scriptType: "inline"
+          inlineScript: |
+            # Set environment variables
+            export AWS_REGION="${{ parameters.region }}"
+            export ENVIRONMENT="${{ parameters.environment }}"
+            export ECR_PREFIX="${{ parameters.ecrRepositoryPrefix }}"
+            
+            echo "========================================"
+            echo "Tagging ECR images for environment: ${ENVIRONMENT}"
+            echo "Region: ${AWS_REGION}"
+            echo "========================================"
+            
+            # Check if ECR info files exist
+            if [ ! -d "$(Pipeline.Workspace)/ecr-info" ] || [ -z "$(ls -A $(Pipeline.Workspace)/ecr-info/*-repo.txt 2>/dev/null)" ]; then
+              echo "No ECR info found. Skipping tagging."
+              exit 0
+            fi
+            
+            # Process each ECR repository
+            for repo_file in $(Pipeline.Workspace)/ecr-info/*-repo.txt; do
+              # Extract image tag name from filename
+              IMAGE_TAG=$(basename "${repo_file}" | sed 's/-repo.txt$//')
+              
+              # Read ECR repository URI and version
+              ECR_REPO_URI=$(cat "${repo_file}")
+              VERSION_FILE="$(Pipeline.Workspace)/ecr-info/${IMAGE_TAG}-version.txt"
+              VERSION=$(cat "${VERSION_FILE}")
+              
+              echo "========================================"
+              echo "Processing: ${IMAGE_TAG}"
+              echo "ECR Repository: ${ECR_REPO_URI}"
+              echo "Version: ${VERSION}"
+              echo "Environment Tag: ${ENVIRONMENT}"
+              echo "========================================"
+              
+              # Use AWS ECR batch-get-image and put-image to tag without pulling
+              # This is much faster than docker pull/tag/push
+              
+              # Get the image manifest for the version tag
+              echo "Retrieving image manifest for ${ECR_REPO_URI}:${VERSION}..."
+              MANIFEST=$(aws ecr batch-get-image \
+                --repository-name $(echo ${ECR_REPO_URI} | awk -F'/' '{print $NF}') \
+                --image-ids imageTag=${VERSION} \
+                --region ${AWS_REGION} \
+                --query 'images[0].imageManifest' \
+                --output text)
+              
+              if [ -z "${MANIFEST}" ] || [ "${MANIFEST}" == "None" ]; then
+                echo "ERROR: Failed to retrieve manifest for ${ECR_REPO_URI}:${VERSION}"
+                exit 1
+              fi
+              
+              # Check if environment tag already exists
+              echo "Checking if environment tag ${ENVIRONMENT} already exists..."
+              EXISTING_MANIFEST=$(aws ecr batch-get-image \
+                --repository-name $(echo ${ECR_REPO_URI} | awk -F'/' '{print $NF}') \
+                --image-ids imageTag=${ENVIRONMENT} \
+                --region ${AWS_REGION} \
+                --query 'images[0].imageManifest' \
+                --output text 2>/dev/null || echo "")
+              
+              if [ -n "${EXISTING_MANIFEST}" ] && [ "${EXISTING_MANIFEST}" != "None" ]; then
+                # Environment tag exists, check if it points to the same image
+                if [ "${EXISTING_MANIFEST}" == "${MANIFEST}" ]; then
+                  echo "========================================"
+                  echo "Environment tag ${ENVIRONMENT} already points to this image"
+                  echo "Skipping tagging (idempotent operation)"
+                  echo "========================================"
+                else
+                  echo "Environment tag ${ENVIRONMENT} exists but points to different image"
+                  echo "Updating tag to point to ${VERSION}..."
+                  # Put the image with the environment tag (will update existing tag)
+                  aws ecr put-image \
+                    --repository-name $(echo ${ECR_REPO_URI} | awk -F'/' '{print $NF}') \
+                    --image-tag ${ENVIRONMENT} \
+                    --image-manifest "${MANIFEST}" \
+                    --region ${AWS_REGION} > /dev/null
+                  
+                  if [ $? -ne 0 ]; then
+                    echo "ERROR: Failed to update tag ${ECR_REPO_URI}:${ENVIRONMENT}"
+                    exit 1
+                  fi
+                  
+                  echo "Successfully updated ${ECR_REPO_URI}:${ENVIRONMENT} to point to ${VERSION}"
+                fi
+              else
+                # Environment tag doesn't exist, create it
+                echo "Creating new environment tag ${ENVIRONMENT}..."
+                aws ecr put-image \
+                  --repository-name $(echo ${ECR_REPO_URI} | awk -F'/' '{print $NF}') \
+                  --image-tag ${ENVIRONMENT} \
+                  --image-manifest "${MANIFEST}" \
+                  --region ${AWS_REGION} > /dev/null
+                
+                if [ $? -ne 0 ]; then
+                  echo "ERROR: Failed to tag ${ECR_REPO_URI}:${VERSION} as ${ENVIRONMENT}"
+                  exit 1
+                fi
+                
+                echo "Successfully tagged ${ECR_REPO_URI}:${VERSION} as ${ENVIRONMENT}"
+              fi
+              
+            done
+            
+            echo "========================================"
+            echo "All images tagged with environment: ${ENVIRONMENT}"
+            echo "========================================"

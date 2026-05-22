@@ -1,0 +1,10 @@
+variables:
+  ENVIRONMENT: qa
+  # S3 bucket lambda artifacts are uploaded to / pulled from by the CDK stack.
+  BUCKET_NAME: wayroo-qa-codeartifacts
+  ARTIFACTS_BUCKET_ARN: arn:aws:s3:::wayroo-qa-codeartifacts
+  # SNS topic the CloudWatch alarms route to.
+  ALARM_TOPIC_ARN: arn:aws:sns:us-east-1:329543726915:qa-DeveloperAlarmRelayTopic
+  # Role assumed to run the CloudFormation deploy.
+  CF_ROLE_ARN: arn:aws:iam::329543726915:role/qa-VSTS-ManageCFRole
+  awsCredentialsAccount: rs-aws-luci-qa

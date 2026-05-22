@@ -1,0 +1,229 @@
+#
+
+trigger:
+  branches:
+   include:
+   - main
+
+pr:
+  branches:
+   include:
+     - "*"
+
+variables:
+  - template: variables/service.yml
+
+pool:
+  vmImage: "ubuntu-latest"
+
+stages:
+  - stage: CI
+    displayName: CI
+    jobs:
+      # Discover components once at the start
+      - template: templates/build-pipeline/discover-components.yml
+      
+      # Build and test jobs can run in parallel after discovery
+      - template: templates/build-pipeline/build.yml
+        parameters:
+          buildConfiguration: "$(BuildConfiguration)"
+          dotNetVersion: "${{ variables.DotNetVersion }}"
+
+      - template: templates/build-pipeline/package-sdks.yml
+        parameters:
+          buildConfiguration: "$(BuildConfiguration)"
+          semVerVersionForBuild: "$(SemVerVersionForBuild)"
+          artifactName: "${{ variables.LIBRARIES_ARTIFACT_NAME }}"
+
+      - template: templates/build-pipeline/package-lambdas.yml
+        parameters:
+          buildConfiguration: "$(BuildConfiguration)"
+          artifactName: "${{ variables.LAMBDAS_ARTIFACT_NAME }}"
+
+      - template: templates/build-pipeline/build-docker-apis.yml
+        parameters:
+          buildConfiguration: "$(BuildConfiguration)"
+          artifactName: "${{ variables.DOCKER_IMAGES_ARTIFACT_NAME }}"
+
+      - template: templates/build-pipeline/package-cdks.yml
+        parameters:
+          buildConfiguration: "$(BuildConfiguration)"
+          artifactName: "${{ variables.CDK_ARTIFACT_NAME }}"
+
+  - stage: Publish
+    displayName: Publish Artifacts
+    dependsOn: CI
+    condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+    jobs:
+      - template: templates/publish-pipeline/tag.yml
+        parameters:
+          semVerVersionForBuild: "$(SemVerVersionForBuild)"
+          buildConfiguration: "$(BuildConfiguration)"
+
+      - template: templates/publish-pipeline/publish-sdks.yml
+        parameters:
+          artifactName: "${{ variables.LIBRARIES_ARTIFACT_NAME }}"
+
+      - template: templates/publish-pipeline/publish-to-ecr.yml
+        parameters:
+          region: "${{ variables.REGION }}"
+          ecrAwsCredentials: "${{ variables.ECR_AWS_CREDENTIALS }}"
+          artifactName: "${{ variables.DOCKER_IMAGES_ARTIFACT_NAME }}"
+          ecrRepositoryPrefix: "${{ variables.ECR_REPOSITORY_PREFIX }}"
+
+  - stage: Deploy_Dev
+    displayName: Deploy to Dev
+    dependsOn: [CI, Publish]
+    condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+    variables:
+      - template: variables/dev.yml
+      - name: HasLambdas
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasLambdas']]
+      - name: HasSmokeTests
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasSmokeTests']]
+      - name: HasAPIs
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasAPIs']]
+    jobs:
+      - template: templates/deploy-pipeline/upload-lambdas.yml
+        parameters:
+          environment: ${{ variables.ENVIRONMENT }}
+          bucketName: "$(BUCKET_NAME)"
+          region: "$(REGION)"
+          semVerVersionForBuild: "$(SemVerVersionForBuild)"
+          artifactName: "${{ variables.LAMBDAS_ARTIFACT_NAME }}"
+          awsCredentials: ${{ variables.awsCredentialsAccount }}
+
+      - template: templates/deploy-pipeline/tag-ecr-image.yml
+        parameters:
+          environment: ${{ variables.ENVIRONMENT }}
+          region: "$(REGION)"
+          ecrAwsCredentials: ${{ variables.ECR_AWS_CREDENTIALS }}
+          ecrRepositoryPrefix: "${{ variables.ECR_REPOSITORY_PREFIX }}"
+
+      - template: templates/deploy-pipeline/deploy-cdk.yml
+        parameters:
+          jobName: Deploy_CDK
+          displayName: "Deploy CDK to ${{ variables.ENVIRONMENT }}"
+          environment: ${{ variables.ENVIRONMENT }}
+          dependsOn:
+            # TODO: Improve this dependency since this should only be dependent
+            # when a repo has lambdas; ideally this is handled more dynamically
+            # - UploadLambdas
+            - TagECRImage
+          awsCredentials: ${{ variables.awsCredentialsAccount }}
+          region: "$(REGION)"
+          cdkArtifactName: "${{ variables.CDK_ARTIFACT_NAME }}"
+          cfTemplateFile: "${{ variables.CF_TEMPLATE_FILE }}"
+          ecsServiceName: "${{ variables.ECS_SERVICE_NAME }}"
+          
+      - template: templates/test-pipeline/run-smoke-tests.yml
+        parameters:
+          jobName: RunSmokeTests
+          displayName: "Running Smoke Tests against ${{ variables.ENVIRONMENT }} Deployment"
+          dependsOn:
+            - Deploy_CDK
+          condition: and(succeeded(), eq(variables['HasSmokeTests'], 'true'))
+          awsCredentials: ${{ variables.awsCredentialsAccount }}
+          region: "$(REGION)"
+          artifactName: "${{ variables.SMOKETESTS_ARTIFACT_NAME }}"
+          dotnetVersion: "${{ variables.DotNetVersion }}"
+          testRunTitle: "Smoke Tests"
+          environment: ${{ variables.ENVIRONMENT }}
+
+  - stage: Deploy_Qa
+    displayName: Deploy to Qa
+    dependsOn: [CI, Deploy_Dev]
+    condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+    variables:
+      - template: variables/qa.yml
+      - name: HasLambdas
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasLambdas']]
+      - name: HasSmokeTests
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasSmokeTests']]
+      - name: HasAPIs
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasAPIs']]
+    jobs:
+      - template: templates/deploy-pipeline/upload-lambdas.yml
+        parameters:
+          environment: ${{ variables.ENVIRONMENT }}
+          bucketName: "$(BUCKET_NAME)"
+          region: "$(REGION)"
+          semVerVersionForBuild: "$(SemVerVersionForBuild)"
+          artifactName: "${{ variables.LAMBDAS_ARTIFACT_NAME }}"
+          awsCredentials: ${{ variables.awsCredentialsAccount }}
+
+      - template: templates/deploy-pipeline/tag-ecr-image.yml
+        parameters:
+          environment: ${{ variables.ENVIRONMENT }}
+          region: "$(REGION)"
+          ecrAwsCredentials: ${{ variables.ECR_AWS_CREDENTIALS }}
+          ecrRepositoryPrefix: "${{ variables.ECR_REPOSITORY_PREFIX }}"
+
+      - template: templates/deploy-pipeline/deploy-cdk.yml
+        parameters:
+          jobName: Deploy_CDK
+          displayName: "Deploy CDK to ${{ variables.ENVIRONMENT }}"
+          environment: ${{ variables.ENVIRONMENT }}
+          dependsOn:
+            - UploadLambdas
+            - TagECRImage
+          awsCredentials: ${{ variables.awsCredentialsAccount }}
+          region: "$(REGION)"
+          cdkArtifactName: "${{ variables.CDK_ARTIFACT_NAME }}"
+          cfTemplateFile: "${{ variables.CF_TEMPLATE_FILE }}"
+          ecsServiceName: "${{ variables.ECS_SERVICE_NAME }}"
+      - template: templates/test-pipeline/run-smoke-tests.yml
+        parameters:
+          jobName: RunSmokeTests
+          displayName: "Running Smoke Tests against ${{ variables.ENVIRONMENT }} Deployment"
+          dependsOn:
+            - Deploy_CDK
+          condition: and(succeeded(), eq(variables['HasSmokeTests'], 'true'))
+          awsCredentials: ${{ variables.awsCredentialsAccount }}
+          region: "$(REGION)"
+          artifactName: "${{ variables.SMOKETESTS_ARTIFACT_NAME }}"
+          dotnetVersion: "${{ variables.DotNetVersion }}"
+          testRunTitle: "Smoke Tests"
+          
+  - stage: Deploy_Prod
+    displayName: Deploy to Prod
+    dependsOn: [CI, Deploy_Qa]
+    condition: and(succeeded(), eq(variables['Build.SourceBranchName'], 'main'))
+    variables:
+      - template: variables/prod.yml
+      - name: HasLambdas
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasLambdas']]
+      - name: HasSmokeTests
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasSmokeTests']]
+      - name: HasAPIs
+        value: $[stageDependencies.CI.DiscoverComponents.outputs['ParseComponents.hasAPIs']]
+    jobs:
+      - template: templates/deploy-pipeline/upload-lambdas.yml
+        parameters:
+          environment: ${{ variables.ENVIRONMENT }}
+          bucketName: "$(BUCKET_NAME)"
+          region: "$(REGION)"
+          semVerVersionForBuild: "$(SemVerVersionForBuild)"
+          artifactName: "${{ variables.LAMBDAS_ARTIFACT_NAME }}"
+          awsCredentials: ${{ variables.awsCredentialsAccount }}
+
+      - template: templates/deploy-pipeline/tag-ecr-image.yml
+        parameters:
+          environment: ${{ variables.ENVIRONMENT }}
+          region: "$(REGION)"
+          ecrAwsCredentials: ${{ variables.ECR_AWS_CREDENTIALS }}
+          ecrRepositoryPrefix: "${{ variables.ECR_REPOSITORY_PREFIX }}"
+
+      - template: templates/deploy-pipeline/deploy-cdk.yml
+        parameters:
+          jobName: Deploy_CDK
+          displayName: "Deploy CDK to ${{ variables.ENVIRONMENT }}"
+          environment: ${{ variables.ENVIRONMENT }}
+          dependsOn:
+            - UploadLambdas
+            - TagECRImage
+          awsCredentials: ${{ variables.awsCredentialsAccount }}
+          region: "$(REGION)"
+          cdkArtifactName: "${{ variables.CDK_ARTIFACT_NAME }}"
+          cfTemplateFile: "${{ variables.CF_TEMPLATE_FILE }}"
+          ecsServiceName: "${{ variables.ECS_SERVICE_NAME }}"

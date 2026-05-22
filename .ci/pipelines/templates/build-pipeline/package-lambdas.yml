@@ -1,0 +1,53 @@
+parameters:
+  buildConfiguration: "Release"
+  artifactName: "Lambdas"
+
+jobs:
+  - job: PackageLambdas
+    displayName: "Package ${{ parameters.artifactName }} to Azure Artifacts"
+    dependsOn: DiscoverComponents
+    variables:
+      hasLambdas: $[ dependencies.DiscoverComponents.outputs['ParseComponents.hasLambdas'] ]
+      lambdasJson: $[ dependencies.DiscoverComponents.outputs['ParseComponents.lambdasJson'] ]
+    condition: eq(dependencies.DiscoverComponents.outputs['ParseComponents.hasLambdas'], 'true')
+    steps:
+      - task: NuGetAuthenticate@1
+        displayName: "Authenticate to Azure Artifacts"
+
+      - task: PowerShell@2
+        displayName: "Package Lambda functions from discovery"
+        name: ProcessLambdas
+        inputs:
+          targetType: "inline"
+          script: |
+            # Load lambda data from discovery
+            $lambdasJson = '$(lambdasJson)'
+            $lambdas = $lambdasJson | ConvertFrom-Json
+
+            dotnet tool install -g Amazon.Lambda.Tools || echo "Already installed"
+            dotnet tool restore
+
+            Write-Host "Packaging $($lambdas.Count) Lambda function(s)..."
+
+            foreach ($lambda in $lambdas) {
+              Write-Host "Packaging lambda: $($lambda.ServiceName) - $($lambda.ComponentName)"
+              
+              dotnet lambda package `
+                --project-location "$(Build.SourcesDirectory)/$($lambda.Path)" `
+                --configuration ${{ parameters.buildConfiguration }} `
+                --output-package "$(Build.ArtifactStagingDirectory)/$($lambda.ServiceName).$($lambda.ComponentName).zip"
+              
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Failed to package lambda: $($lambda.Name)"
+                exit 1
+              }
+            }
+            
+            Write-Host "All Lambda functions packaged successfully"
+            Write-Host "##vso[task.setvariable variable=hasLambdas;isOutput=true]true"
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish ${{ parameters.artifactName }} to Azure Artifacts"
+        inputs:
+          targetPath: "$(Build.ArtifactStagingDirectory)"
+          artifact: "${{ parameters.artifactName }}"

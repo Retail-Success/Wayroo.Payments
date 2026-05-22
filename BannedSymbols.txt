@@ -1,0 +1,7 @@
+M:System.IO.Path.Combine(System.String,System.String);Use S3PathHelper or string interpolation with '/' for S3 keys — Path.Combine uses backslashes on Windows
+M:System.IO.Path.Combine(System.String,System.String,System.String);Use S3PathHelper or string interpolation with '/' for S3 keys
+M:System.IO.Path.Combine(System.String[]);Use S3PathHelper or string interpolation with '/' for S3 keys
+M:System.IO.Path.Join(System.String,System.String);Use S3PathHelper for S3 keys
+M:System.IO.Path.GetDirectoryName(System.String);Use S3PathHelper for S3 keys
+M:System.IO.Path.GetFileName(System.String);Use S3PathHelper for S3 keys
+M:System.IO.Path.GetFullPath(System.String);Use S3PathHelper for S3 keys

@@ -1,0 +1,10 @@
+variables:
+  ENVIRONMENT: dev
+  # S3 bucket lambda artifacts are uploaded to / pulled from by the CDK stack.
+  BUCKET_NAME: luci-dev-temp
+  ARTIFACTS_BUCKET_ARN: arn:aws:s3:::luci-dev-temp
+  # SNS topic the CloudWatch alarms route to.
+  ALARM_TOPIC_ARN: arn:aws:sns:us-east-1:203538442868:dev-DeveloperAlarmRelayTopic
+  # Role assumed to run the CloudFormation deploy.
+  CF_ROLE_ARN: arn:aws:iam::203538442868:role/dev-VSTS-ManageCFRole
+  awsCredentialsAccount: rs-aws-luci-dev

@@ -1,0 +1,180 @@
+parameters:
+  buildConfiguration: "Release"
+  artifactName: "DockerImages"
+
+jobs:
+  - job: BuildDockerAPIs
+    displayName: "Build Docker Images for API Components"
+    dependsOn: DiscoverComponents
+    variables:
+      hasAPIs: $[ dependencies.DiscoverComponents.outputs['ParseComponents.hasAPIs'] ]
+      apisJson: $[ dependencies.DiscoverComponents.outputs['ParseComponents.apisJson'] ]
+    condition: eq(dependencies.DiscoverComponents.outputs['ParseComponents.hasAPIs'], 'true')
+    steps:
+      - task: NuGetAuthenticate@1
+        displayName: "Authenticate to Azure Artifacts"
+
+      - task: PowerShell@2
+        displayName: "Build Docker images for API components"
+        name: BuildDockerImages
+        inputs:
+          targetType: "inline"
+          script: |
+            # Load API components from discovery
+            $apisJson = '$(apisJson)'
+            $apiComponents = $apisJson | ConvertFrom-Json
+            
+            # Create output directory for Docker image metadata
+            $metadataDir = "$(Build.ArtifactStagingDirectory)/docker-metadata"
+            New-Item -ItemType Directory -Force -Path $metadataDir | Out-Null
+            
+            # Enable Docker BuildKit for better caching
+            $env:DOCKER_BUILDKIT = "1"
+            
+            foreach ($api in $apiComponents) {
+              $serviceName = $api.ServiceName
+              $componentName = $api.ComponentName
+              $componentPath = $api.Path
+              $componentFullName = $api.Name
+              
+              # Generate image tag using lowercase convention for ECR
+              $imageTag = "$($serviceName)-$($componentName)".ToLower()
+              $versionTag = "$(Build.BuildNumber)"
+              
+              Write-Host "========================================"
+              Write-Host "Building Docker image for: $imageTag"
+              Write-Host "Version: $versionTag"
+              Write-Host "Path: $componentPath"
+              Write-Host "========================================"
+              
+              # Find Dockerfile in component path
+              $dockerfilePath = Join-Path "$(Build.SourcesDirectory)" $componentPath "Dockerfile"
+              
+              if (-not (Test-Path $dockerfilePath)) {
+                Write-Error "Dockerfile not found at: $dockerfilePath"
+                exit 1
+              }
+              
+              Write-Host "Found Dockerfile at: $dockerfilePath"
+              
+              # Try to pull the latest image for cache (ignore failures for first builds)
+              Write-Host "Attempting to pull latest image for cache..."
+              docker pull "${imageTag}:latest" 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                Write-Host "Successfully pulled ${imageTag}:latest for cache"
+                $cacheFrom = "--cache-from=${imageTag}:latest"
+              } else {
+                Write-Host "No previous image found for cache (this is normal for first build)"
+                $cacheFrom = ""
+              }
+
+              Write-Host "Publishing API for Passing to Docker Build: $serviceName - $componentName"
+              
+              dotnet publish "$(Build.SourcesDirectory)/$componentPath" `
+                --configuration ${{ parameters.buildConfiguration }} `
+                --output "$(Build.ArtifactStagingDirectory)/api/$serviceName.$componentName"
+
+              # Build the Docker image with BuildKit and layer caching
+              # Use the root directory as build context (for Directory.Build.Props, nuget.config, etc.)
+              Write-Host "Building with Docker BuildKit and layer caching enabled..."
+
+              $buildArgs = @(
+                "build"
+                "-t", "${imageTag}:${versionTag}"
+                "-t", "${imageTag}:latest"
+                "-f", "$dockerfilePath"
+                "--build-arg", "BUILDKIT_INLINE_CACHE=1"
+              )
+              
+              if ($cacheFrom) {
+                $buildArgs += $cacheFrom
+              }
+              
+              # Set the docker image context to the dotnet publish content from above
+              $buildArgs += "$(Build.ArtifactStagingDirectory)/api/$serviceName.$componentName"
+              
+              & docker $buildArgs
+              
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Docker build failed for $imageTag"
+                exit 1
+              }
+              
+              Write-Host "Successfully built: ${imageTag}:${versionTag}"
+              Write-Host "BuildKit cache enabled for faster subsequent builds"
+                
+              # Save image metadata for deployment stage
+              $metadata = @{
+                ComponentName = $componentFullName
+                ServiceName = $serviceName
+                ComponentShortName = $componentName
+                ImageTag = $imageTag
+                Version = $versionTag
+                Path = $componentPath
+              } | ConvertTo-Json
+              
+              $metadataFile = Join-Path $metadataDir "$imageTag.json"
+              $metadata | Out-File -FilePath $metadataFile -Encoding utf8
+              Write-Host "Saved metadata to: $metadataFile"
+            }
+            
+            Write-Host "========================================"
+            Write-Host "All Docker images built successfully"
+            Write-Host "========================================"
+
+      - task: PowerShell@2
+        displayName: "Save Docker images as tar archives"
+        name: SaveDockerImages
+        inputs:
+          targetType: "inline"
+          script: |
+            # Create directory for Docker image archives
+            $imagesDir = "$(Build.ArtifactStagingDirectory)/docker-images"
+            New-Item -ItemType Directory -Force -Path $imagesDir | Out-Null
+            
+            # Read metadata to get list of images to save
+            $metadataDir = "$(Build.ArtifactStagingDirectory)/docker-metadata"
+            
+            foreach ($metadataFile in Get-ChildItem -Path $metadataDir -Filter "*.json") {
+              $metadata = Get-Content -Path $metadataFile.FullName | ConvertFrom-Json
+              $imageTag = $metadata.ImageTag
+              $version = $metadata.Version
+              
+              Write-Host "========================================"
+              Write-Host "Saving Docker image: ${imageTag}:${version}"
+              Write-Host "========================================"
+              
+              # Save image as tar archive (includes BuildKit cache metadata)
+              $tarFile = Join-Path $imagesDir "${imageTag}.tar"
+              docker save -o "$tarFile" "${imageTag}:${version}" "${imageTag}:latest"
+              
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Failed to save Docker image: ${imageTag}"
+                exit 1
+              }
+              
+              # Compress the tar file to save space and transfer time
+              Write-Host "Compressing image archive..."
+              Compress-Archive -Path "$tarFile" -DestinationPath "${tarFile}.zip" -CompressionLevel Optimal -Force
+              Remove-Item "$tarFile" -Force
+              
+              $compressedSize = (Get-Item "${tarFile}.zip").Length / 1MB
+              Write-Host "Compressed image size: $([math]::Round($compressedSize, 2)) MB"
+              Write-Host "Successfully saved: ${imageTag}.tar.zip"
+            }
+            
+            Write-Host "========================================"
+            Write-Host "All Docker images saved as archives"
+            Write-Host "========================================"
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish Docker metadata to Azure Artifacts"
+        inputs:
+          targetPath: "$(Build.ArtifactStagingDirectory)/docker-metadata"
+          artifact: "${{ parameters.artifactName }}-metadata"
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish Docker images to Azure Artifacts"
+        inputs:
+          targetPath: "$(Build.ArtifactStagingDirectory)/docker-images"
+          artifact: "${{ parameters.artifactName }}-images"

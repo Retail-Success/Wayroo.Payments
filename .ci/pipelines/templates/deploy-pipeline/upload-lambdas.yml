@@ -1,0 +1,115 @@
+parameters:
+  environment: ""
+  bucketName: ""
+  region: ""
+  semVerVersionForBuild: ""
+  artifactName: "Lambdas"
+  awsCredentials: ""
+
+jobs:
+  - job: UploadLambdas
+    displayName: "Deploy lambdas to ${{ parameters.environment }}"
+    condition: eq(variables['HasLambdas'], 'true')
+    steps:
+      - script: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install --update
+          aws --version
+        displayName: Enable AWS CLI V2
+
+      - download: current
+        artifact: ${{ parameters.artifactName }}
+
+      - task: PowerShell@2
+        displayName: "Load lambda metadata from discovery"
+        inputs:
+          targetType: "inline"
+          script: |
+            # Lambda data is already available from discovery, but we need to read components.json
+            # to get the lambda information since discovery outputs aren't available in deploy stage
+            # This is a limitation of Azure Pipelines cross-stage variable passing
+            $servicesJson = Get-Content -Path "$(Build.SourcesDirectory)/components.json" | ConvertFrom-Json
+            $lambdaServices = @()
+            foreach ($service in $servicesJson.PSObject.Properties) {
+              $serviceDetails = $service.Value
+                
+              if ($serviceDetails.type -eq "lambda") {
+                Write-Host "Found lambda service: $($serviceDetails.serviceName) - $($serviceDetails.componentName)"
+                $lambdaServices += @{
+                  "path" = $serviceDetails.path
+                  "serviceName" = $serviceDetails.serviceName
+                  "componentName" = $serviceDetails.componentName
+                }
+              }
+            }
+
+            Write-Host "Found $($lambdaServices.Count) lambda services to upload"
+
+            # Set output variable for next task
+            $lambdaServicesJson = $lambdaServices | ConvertTo-Json -Compress
+            Write-Host "##vso[task.setvariable variable=LambdaServicesJson]$lambdaServicesJson"
+
+      - task: AWSShellScript@1
+        displayName: "Upload Lambdas to S3"
+        inputs:
+          awsCredentials: ${{ parameters.awsCredentials }}
+          regionName: ${{ parameters.region }}
+          scriptType: inline
+          inlineScript: |
+            # Debug the lambda services JSON
+            echo "Lambda services JSON: $(LambdaServicesJson)"
+
+            # Check if the JSON is an array or a single object
+            if [[ "$(LambdaServicesJson)" == *"["* ]]; then
+              # It's an array, use as is
+              echo '$(LambdaServicesJson)' > lambda_components.json
+            else
+              # It's a single object, wrap in array
+              echo '[$(LambdaServicesJson)]' > lambda_components.json
+            fi
+
+            echo "JSON content:"
+            cat lambda_components.json
+
+            # List the artifact directory
+            echo "Available artifacts:"
+            ls -la "$(Pipeline.Workspace)/${{ parameters.artifactName }}/"
+
+            # Process each lambda service - handle both array and single object
+            while read -r service; do
+              # Extract service name directly from the object and pull out it's value
+              SERVICE_NAME=$(echo "$service" | grep -o '"serviceName":"[^"]*"' | cut -d '"' -f4)
+              # Extract component name directly from the object and pull out it's value
+              COMPONENT_NAME=$(echo "$service" | grep -o '"componentName":"[^"]*"' | cut -d '"' -f4)
+              
+              echo "Service name: $SERVICE_NAME"
+              echo "Component name: $COMPONENT_NAME"
+              
+              # Create the zip file name
+              LAMBDA_ZIP_NAME="${SERVICE_NAME}.${COMPONENT_NAME}.zip"
+              echo "Lambda zip name: $LAMBDA_ZIP_NAME"
+              
+              # Create the S3 key path
+              LAMBDA_ZIP_S3_KEY="${{ parameters.environment }}/${SERVICE_NAME}/${COMPONENT_NAME}/${{ parameters.semVerVersionForBuild }}/${LAMBDA_ZIP_NAME}"
+              
+              echo "Uploading $LAMBDA_ZIP_NAME to s3://${{ parameters.bucketName }}/${LAMBDA_ZIP_S3_KEY}"
+              
+              # Check if the file exists before uploading
+              if [ -f "$(Pipeline.Workspace)/${{ parameters.artifactName }}/${LAMBDA_ZIP_NAME}" ]; then
+                echo "File exists at $(Pipeline.Workspace)/${{ parameters.artifactName }}/${LAMBDA_ZIP_NAME}"
+                
+                # Upload the lambda zip to S3
+                aws s3 cp "$(Pipeline.Workspace)/${{ parameters.artifactName }}/${LAMBDA_ZIP_NAME}" "s3://${{ parameters.bucketName }}/${LAMBDA_ZIP_S3_KEY}"
+                
+                if [ $? -eq 0 ]; then
+                  echo "Successfully uploaded $LAMBDA_ZIP_NAME"
+                else
+                  echo "Failed to upload $LAMBDA_ZIP_NAME"
+                  exit 1
+                fi
+              else
+                echo "ERROR: File not found at $(Pipeline.Workspace)/${{ parameters.artifactName }}/${LAMBDA_ZIP_NAME}"
+                exit 1
+              fi
+            done < <(cat lambda_components.json | jq -c '.[]' 2>/dev/null || cat lambda_components.json | jq -c '.')

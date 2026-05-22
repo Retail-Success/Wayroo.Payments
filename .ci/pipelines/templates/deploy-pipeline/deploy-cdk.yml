@@ -1,0 +1,84 @@
+parameters:
+  jobName: "Deploy_CDK"
+  displayName: ""
+  environment: ""
+  dependsOn: []
+  awsCredentials: ""
+  region: ""
+  cdkArtifactName: "CDK"
+  # TODO: Update this to be more dynamic and potentially re-use the artifacts built in the package-cdks.yml
+  cfTemplateFile: "$(Pipeline.Workspace)/CDK/PaymentsInfrastructureCDK.template.json"
+  ecsServiceName: ""
+
+jobs:
+  - deployment: ${{ parameters.jobName }}
+    displayName: ${{ parameters.displayName }}
+    environment: ${{ parameters.environment }}
+    dependsOn: ${{ parameters.dependsOn }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - download: current
+              artifact: ${{ parameters.cdkArtifactName }}
+
+            - task: AWSShellScript@1
+              inputs:
+                # TODO: Replace this with a connection unique to AzDO CI/CD that has only CloudFormation permissions to prevent unintended changing of terraform managed resources and prevent others from unintentionally changing CF managed resources.
+                awsCredentials: ${{ parameters.awsCredentials }}
+                regionName: ${{ parameters.region }}
+                scriptType: inline
+                inlineScript: |
+                  # Capture the assume-role output
+                  TEMP_ROLE=$(aws sts assume-role \
+                    --role-arn $(CF_ROLE_ARN) \
+                    --role-session-name AzureDevOps-InfraDeploy)
+
+                  # Extract credentials
+                  export AWS_ACCESS_KEY_ID=$(echo $TEMP_ROLE | jq -r '.Credentials.AccessKeyId')
+                  export AWS_SECRET_ACCESS_KEY=$(echo $TEMP_ROLE | jq -r '.Credentials.SecretAccessKey')
+                  export AWS_SESSION_TOKEN=$(echo $TEMP_ROLE | jq -r '.Credentials.SessionToken')
+
+                  # Sanitize ServiceName for CloudFormation stack name (letters, numbers, hyphens only)
+                  clean_string=$(echo "$(ServiceName)" | sed 's/\.//g')
+                  STACK_NAME="$(ENVIRONMENT)-${clean_string}-Infrastructure"
+                  echo "Using CloudFormation stack name: ${STACK_NAME}"
+
+                  echo "========================================"
+                  echo "Deploying CloudFormation Stack"
+                  echo "========================================"
+
+                  # Run CloudFormation with the assumed role credentials
+                  aws cloudformation deploy \
+                  --template-file '${{ parameters.cfTemplateFile }}' \
+                  --stack-name "${STACK_NAME}" \
+                  --parameter-overrides \
+                    ArtifactsBucketArn=$(ARTIFACTS_BUCKET_ARN) \
+                    AlarmRelayTopicArn=$(ALARM_TOPIC_ARN) \
+                    Environment=$(ENVIRONMENT) \
+                    LambdaArtifactVersion=$(SemVerVersionForBuild) \
+                    --tags \
+                      rs:environment=$(ENVIRONMENT) \
+                      rs:service=$(ServiceName) \
+                      rs:component=Infrastructure \
+                      rs:maintainer=devs
+              displayName: deploy Infrastructure CF Template to ${{ parameters.environment }}
+
+  # Only runs when an "api" component exists (it deploys to ECS). Payments is lambda-only today,
+  # so this is skipped; it activates automatically once an API is added to components.json.
+  - job: Update${{ parameters.environment }}ECS
+    dependsOn: ${{ parameters.jobName }}
+    condition: and(succeeded(), eq(variables['HasAPIs'], 'true'))
+    displayName: "Force ${{ parameters.environment }} ECS Deployment"
+    steps:
+      - task: AWSCLI@1
+        displayName: "Update ${{ parameters.environment }} ECS"
+        inputs:
+          awsCredentials: ${{ parameters.awsCredentials }}
+          regionName: "$(REGION)"
+          awsCommand: "ecs"
+          awsSubCommand: "update-service"
+          awsArguments: >
+            --cluster $(ENVIRONMENT)-ecs-cluster
+            --service ${{ parameters.ecsServiceName }}
+            --force-new-deployment

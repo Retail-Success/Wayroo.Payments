@@ -1,0 +1,67 @@
+parameters:
+  buildConfiguration: "Release"
+  artifactName: "CDK"
+
+jobs:
+  - job: PackageCDK
+    displayName: "Package ${{ parameters.artifactName }} to Azure Artifacts"
+    dependsOn: DiscoverComponents
+    variables:
+      hasInfrastructure: $[ dependencies.DiscoverComponents.outputs['ParseComponents.hasInfrastructure'] ]
+      infrastructureJson: $[ dependencies.DiscoverComponents.outputs['ParseComponents.infrastructureJson'] ]
+    condition: eq(dependencies.DiscoverComponents.outputs['ParseComponents.hasInfrastructure'], 'true')
+    steps:
+      - task: NuGetAuthenticate@1
+        displayName: "Authenticate to Azure Artifacts"
+      
+      - task: PowerShell@2
+        displayName: "Build and synthesize CDK for infrastructure projects"
+        name: ProcessInfrastructure
+        inputs:
+          targetType: "inline"
+          script: |
+            # Load infrastructure data from discovery
+            $infrastructureJson = '$(infrastructureJson)'
+            $infrastructureComponents = $infrastructureJson | ConvertFrom-Json
+
+            # Install AWS CDK globally if not already installed
+            Write-Host "Installing AWS CDK CLI..."
+            npm install -g aws-cdk
+
+            Write-Host "Processing $($infrastructureComponents.Count) infrastructure project(s)..."
+
+            foreach ($infra in $infrastructureComponents) {
+              $serviceName = $infra.Name
+              Write-Host "Processing infrastructure project: $serviceName"
+              $projectPath = "$(Build.SourcesDirectory)/$($infra.Path)"
+
+              cd $projectPath
+              
+              # Synth CDK template
+              Write-Host "Synthesizing CDK template for: $serviceName"
+              cdk acknowledge 34892
+              cdk synth --app "dotnet run --configuration ${{ parameters.buildConfiguration }}"
+              
+              # Create output directory for CDK artifacts
+              $cdkOutputPath = "$(Build.ArtifactStagingDirectory)"
+              New-Item -ItemType Directory -Force -Path $cdkOutputPath | Out-Null
+              
+              # Copy ONLY the CloudFormation template (not the entire cdk.out directory)
+              if (Test-Path "$projectPath/cdk.out") {
+                Write-Host "Copying CloudFormation template to artifacts..."
+                Copy-Item -Path "$projectPath/cdk.out/*.template.json" -Destination $cdkOutputPath -Force
+                Write-Host "Template copied successfully"
+              } else {
+                Write-Host "Warning: CDK output directory not found at $projectPath/cdk.out"
+                exit 1
+              }
+            }
+
+            Write-Host "All infrastructure projects processed successfully"
+            Write-Host "##vso[task.setvariable variable=hasInfrastructure;isOutput=true]true"
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish ${{ parameters.artifactName }} to Azure Artifacts"
+        inputs:
+          targetPath: "$(Build.ArtifactStagingDirectory)"
+          artifact: "${{ parameters.artifactName }}"

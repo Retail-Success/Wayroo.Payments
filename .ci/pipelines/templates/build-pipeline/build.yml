@@ -1,0 +1,272 @@
+parameters:
+  buildConfiguration: "Release"
+  dotNetVersion: "8.x"
+  SMOKETESTS_ARTIFACT_NAME: "SmokeTests"
+
+jobs:
+  - job: BuildJob
+    displayName: "Restore & Build & Package & Test"
+    dependsOn: DiscoverComponents
+    variables:
+      BuildTimeTestProjects: $[ dependencies.DiscoverComponents.outputs['ParseComponents.buildTimeTestProjects'] ]
+      SmokeTestProjects: $[ dependencies.DiscoverComponents.outputs['ParseComponents.smokeTestProjects'] ]
+    steps:
+      - task: NuGetAuthenticate@1
+        displayName: "Authenticate to Azure Artifacts"
+
+      - task: UseDotNet@2
+        displayName: "use dotnet ${{ parameters.dotNetVersion }}"
+        inputs:
+          packageType: "sdk"
+          version: "${{ parameters.dotNetVersion }}"
+
+      - task: Cache@2
+        displayName: Cache NuGet global-packages
+        inputs:
+          key: >
+            nuget | "$(Agent.OS)" |
+            $(Build.SourcesDirectory)/nuget.config |
+            **/packages.lock.json
+          restoreKeys: |
+            nuget | "$(Agent.OS)" | $(Build.SourcesDirectory)/nuget.config
+            nuget | "$(Agent.OS)"
+          path: $(Pipeline.Workspace)/.nuget/packages
+
+      - task: Cache@2
+        displayName: Cache NuGet HTTP v3
+        inputs:
+          key: >
+            nuget-http | "$(Agent.OS)" |
+            $(Build.SourcesDirectory)/nuget.config
+          restoreKeys: |
+            nuget-http | "$(Agent.OS)"
+          path: $(Pipeline.Workspace)/.nuget/v3-cache
+
+      - task: DotNetCoreCLI@2
+        displayName: Restore
+        env:
+          NUGET_PACKAGES: $(Pipeline.Workspace)/.nuget/packages
+          NUGET_HTTP_CACHE_PATH: $(Pipeline.Workspace)/.nuget/v3-cache
+          DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+        inputs:
+          command: restore
+          feedsToUse: config
+          nugetConfigPath: "$(Build.SourcesDirectory)/nuget.config"
+          projects: "$(Build.SourcesDirectory)/*.slnx"
+          arguments: "--locked-mode"
+
+      - task: DotNetCoreCLI@2
+        displayName: "Build"
+        inputs:
+          command: "build"
+          arguments: --configuration ${{ parameters.buildConfiguration }} --no-restore
+
+      # - task: DotNetCoreCLI@2
+      #   displayName: "Restore Dotnet Tools"
+      #   inputs:
+      #     command: "restore"
+
+      - task: DockerInstaller@0
+        displayName: "Installing Docker"
+
+      - task: PowerShell@2
+        name: LoadTestProjects
+        displayName: "Load test projects from discovery"
+        inputs:
+          targetType: "inline"
+          script: |
+            # Get test project lists from discovery job outputs
+            $buildTimeTestsString = "$(BuildTimeTestProjects)"
+            $smokeString = "$(SmokeTestProjects)"
+            
+            Write-Host "Build Time Test Projects: $buildTimeTestsString"
+            Write-Host "Smoke Test Projects: $smokeString"
+
+            # Set variables for use in subsequent steps
+            Write-Host "##vso[task.setvariable variable=BuildTimeTestProjects]$buildTimeTestsString"
+            Write-Host "##vso[task.setvariable variable=SmokeTestProjects]$smokeString"
+            Write-Host "##vso[task.setvariable variable=SmokeTestProjects;isOutput=true]$smokeString"
+
+            $hasSmoke = if ($smokeString) { 'true' } else { 'false' }
+            
+            Write-Host "##vso[task.setvariable variable=HasSmokeTests]$hasSmoke"
+            Write-Host "##vso[task.setvariable variable=HasSmokeTests;isOutput=true]$hasSmoke"
+          pwsh: true
+        env:
+          BuildTimeTestProjects: $(BuildTimeTestProjects)
+          SmokeTestProjects: $(SmokeTestProjects)
+
+      - task: PowerShell@2
+        displayName: "Run Build Time Tests (components.json)"
+        condition: and(succeeded(), ne(variables['BuildTimeTestProjects'], ''))
+        env:
+          BuildTimeTestProjects: $(BuildTimeTestProjects) # ensure $env:BuildTimeTestProjects is populated
+        inputs:
+          targetType: "inline"
+          script: |
+            $sep = ';;'
+            $projects = $env:BuildTimeTestProjects -split $sep | Where-Object { $_ -and (Test-Path $_) }
+            if (-not $projects) { Write-Host "No build time test projects to run."; exit 0 }
+            $failed = 0
+            foreach ($proj in $projects) {
+              Write-Host "Running build time tests for $proj"
+              $projName = [System.IO.Path]::GetFileNameWithoutExtension($proj)
+              dotnet test "$proj" --configuration ${{ parameters.buildConfiguration }} --no-build --collect:"XPlat Code Coverage" --logger "trx;LogFileName=${projName}.trx" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Exclude="[*]Microsoft.AspNetCore.OpenApi.Generated,[*]Microsoft.AspNetCore.OpenApi.Generated.*,[*]Wayroo.Payments.SDK.Clients.*"
+              if ($LASTEXITCODE -ne 0) { $failed++ }
+            }
+            if ($failed -gt 0) {
+              Write-Host "##vso[task.logissue type=error]$failed build time test run(s) failed."
+              exit 1
+            }
+          pwsh: true
+
+      - task: PublishTestResults@2
+        displayName: "Publish Build Time Test Results"
+        condition: and(succeededOrFailed(), ne(variables['BuildTimeTestProjects'], ''))
+        inputs:
+          testResultsFormat: "VSTest"
+          testResultsFiles: "**/unit.trx"
+          searchFolder: "$(Build.SourcesDirectory)"
+          mergeTestResults: true
+          testRunTitle: "Build Time Tests"
+
+      - task: PowerShell@2
+        displayName: "Prepare Smoke Test Binaries (components.json)"
+        condition: succeeded()
+        env:
+          SmokeTestProjects: $(SmokeTestProjects) # ensure $env:SmokeTestProjects is populated
+        inputs:
+          targetType: "inline"
+          script: |
+            # Default to not prepared; update to true when manifest is written with at least one entry
+            Write-Host "##vso[task.setvariable variable=SmokeTestsPrepared]false"
+
+            $sep = ';;'
+            $projects = $env:SmokeTestProjects -split $sep | Where-Object { $_ -and (Test-Path $_) }
+            if (-not $projects -or $projects.Count -eq 0) {
+              Write-Host "No smoke test projects discovered."
+              exit 0
+            }
+
+            $staging = Join-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY "SmokeTests"
+            New-Item -ItemType Directory -Force -Path $staging | Out-Null
+
+            $manifest = @()
+            $failed = 0
+
+            foreach ($proj in $projects) {
+              try {
+                Write-Host "Building smoke test project: $proj"
+                dotnet build "$proj" --configuration ${{ parameters.buildConfiguration }}
+                if ($LASTEXITCODE -ne 0) { throw "Build failed for $proj" }
+
+                $projDir = Split-Path $proj -Parent
+                $configDir = Join-Path $projDir "bin/${{ parameters.buildConfiguration }}"
+                if (-not (Test-Path $configDir)) {
+                  Write-Host "##vso[task.logissue type=warning]Missing config output dir: $configDir"
+                  continue
+                }
+
+                $tfmDirs = Get-ChildItem -Path $configDir -Directory | Where-Object { $_.Name -like 'net*' }
+                if (-not $tfmDirs -or $tfmDirs.Count -eq 0) {
+                  $sourceDir = $configDir
+                } else {
+                  $tfm = $tfmDirs | Sort-Object -Property Name -Descending | Select-Object -First 1
+                  $sourceDir = $tfm.FullName
+                }
+
+                $projName = [System.IO.Path]::GetFileNameWithoutExtension($proj)
+                $destDir = Join-Path $staging $projName
+                New-Item -ItemType Directory -Force -Path $destDir | Out-Null
+
+                Write-Host "Copying from $sourceDir to $destDir"
+                Copy-Item -Path (Join-Path $sourceDir '*') -Destination $destDir -Recurse -Force
+
+                # Determine assembly name from csproj (<AssemblyName>) falling back to project name
+                $assemblyName = $null
+                try {
+                  [xml]$projXml = Get-Content -Path $proj -Raw
+                  $assemblyName = ($projXml.Project.PropertyGroup | ForEach-Object { $_.AssemblyName } | Where-Object { $_ } | Select-Object -First 1)
+                } catch {
+                  Write-Host "##vso[task.logissue type=warning]Unable to parse csproj for assembly name: $proj"
+                }
+                if ([string]::IsNullOrWhiteSpace($assemblyName)) { $assemblyName = $projName }
+
+                $expectedDll = Join-Path $destDir ("$assemblyName.dll")
+                if (-not (Test-Path $expectedDll)) {
+                  # Fallback: find a dll matching the assembly name anywhere under destDir
+                  $candidate = Get-ChildItem -Path $destDir -Recurse -Filter ("$assemblyName.dll") -File -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName -First 1
+                  if ($candidate) { $expectedDll = $candidate }
+                }
+
+                if (-not (Test-Path $expectedDll)) {
+                  Write-Host "##vso[task.logissue type=warning]Could not locate test assembly for $projName (expected $assemblyName.dll) under $destDir"
+                } else {
+                  $relativeAssembly = Join-Path $projName ("$assemblyName.dll")
+                  $manifest += [pscustomobject]@{ name = $projName; assembly = $relativeAssembly }
+                  Write-Host "Added to manifest: $relativeAssembly"
+                }
+              } catch {
+                Write-Host "##vso[task.logissue type=error]$_"
+                $failed++
+              }
+            }
+
+            if ($failed -gt 0) {
+              Write-Host "##vso[task.logissue type=error]$failed smoke test project(s) failed to prepare."
+              exit 1
+            }
+
+            try {
+              $manifestPath = Join-Path $staging "_manifest.json"
+              ($manifest | ConvertTo-Json -Depth 5) | Out-File -FilePath $manifestPath -Encoding utf8
+              Write-Host "Wrote manifest: $manifestPath"
+              if ($manifest -and $manifest.Count -gt 0) {
+                Write-Host "##vso[task.setvariable variable=SmokeTestsPrepared]true"
+              }
+            } catch {
+              Write-Host "##vso[task.logissue type=warning]Failed to write manifest: $_"
+            }
+          pwsh: true
+
+      - task: PowerShell@2
+        displayName: "Discover coverage files"
+        inputs:
+          targetType: "inline"
+          script: |
+            $paths = @($env:AGENT_TEMPDIRECTORY, $env:BUILD_SOURCESDIRECTORY)
+            $files = Get-ChildItem -Path $paths -Recurse -File -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+            $files = $files | Sort-Object -Unique
+            if (-not $files -or $files.Count -eq 0) {
+              Write-Host "##vso[task.logissue type=warning]No coverage.cobertura.xml files found under $env:AGENT_TEMPDIRECTORY or $env:BUILD_SOURCESDIRECTORY."
+              Write-Host "##vso[task.setvariable variable=HasCoverageReports]false"
+            } else {
+              Write-Host "Found coverage files:"
+              $files | ForEach-Object { Write-Host " - $_" }
+              Write-Host "##vso[task.setvariable variable=HasCoverageReports]true"
+            }
+            $joined = [string]::Join(';', $files ?? @())
+            Write-Host "##vso[task.setvariable variable=CoverageReports]$joined"
+          pwsh: true
+
+      - task: reportgenerator@5
+        displayName: "Combine Coverage Reports"
+        condition: eq(variables['HasCoverageReports'], 'true')
+        inputs:
+          reports: "$(CoverageReports)"
+          targetdir: "$(Build.SourcesDirectory)/CombinedCoverageResults"
+
+      - task: PublishCodeCoverageResults@2
+        displayName: "Publish Combined Code Coverage"
+        condition: eq(variables['HasCoverageReports'], 'true')
+        inputs:
+          summaryFileLocation: "$(Build.SourcesDirectory)/CombinedCoverageResults/Cobertura.xml"
+          failIfCoverageEmpty: false
+
+      - task: PublishPipelineArtifact@1
+        displayName: "Publish Smoke Tests (components.json)"
+        condition: and(succeeded(), eq(variables['SmokeTestsPrepared'], 'true'))
+        inputs:
+          publishLocation: "pipeline"
+          targetPath: "$(Build.ArtifactStagingDirectory)/SmokeTests"
+          artifact: "${{ parameters.SMOKETESTS_ARTIFACT_NAME }}"

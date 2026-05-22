@@ -1,0 +1,19 @@
+variables:
+  REGION: us-east-1
+  BuildConfiguration: Release
+  ServiceName: Wayroo.Payments
+  SemVerVersionForBuild: "1.0.$(Build.BuildNumber)"
+  DotNetVersion: "10.x"
+  LIBRARIES_ARTIFACT_NAME: "Libraries"
+  LAMBDAS_ARTIFACT_NAME: "Lambdas"
+  CDK_ARTIFACT_NAME: "CDK"
+  SMOKETESTS_ARTIFACT_NAME: "SmokeTests"
+  DOCKER_IMAGES_ARTIFACT_NAME: "DockerImages"
+  ECR_REPOSITORY_PREFIX: "wayroo"
+  ECR_AWS_CREDENTIALS: "rs-aws-ecr-devops"
+  CF_TEMPLATE_FILE: "$(Pipeline.Workspace)/CDK/PaymentsInfrastructureCDK.template.json"
+  NUGET_FEED_URL: "https://pkgs.dev.azure.com/RetailSuccess/Luci-Dev/_packaging/Luci/nuget/v3/index.json"
+  ECR_REGION: "us-east-1"
+  # Payments has no ECS/API service today. This is kept for when an API component is added;
+  # the ECS force-deployment job in deploy-cdk.yml only runs when components.json has an "api" type.
+  ECS_SERVICE_NAME: "$(ENVIRONMENT)-wayroo-payments"

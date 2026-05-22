@@ -1,0 +1,18 @@
+parameters:
+  semVerVersionForBuild: "1.0.$(Build.BuildNumber)"
+  buildConfiguration: "Release"
+
+jobs:
+  - job: version
+    displayName: Version and Tag (main/release only) ${{ parameters.semVerVersionForBuild }}
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+      - checkout: self
+        persistCredentials: true
+      - script: |
+          git config user.email "build@retailsuccess.com"
+          git config user.name "builds-rs"
+          git tag -a v${{ parameters.semVerVersionForBuild }} -m "${{ parameters.buildConfiguration }} v${{ parameters.semVerVersionForBuild }}"
+          git push origin --tags
+        displayName: Apply ${{ parameters.semVerVersionForBuild }} Tag to Sources
