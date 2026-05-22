@@ -6,12 +6,12 @@ using Serilog;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
 
-namespace Wayroo.Payments.Processor.Lambda;
+namespace Wayroo.Payments.ConfigurationRecorder.Lambda;
 
 public class Function
 {
     public static readonly string ServiceName = $"{nameof(Wayroo)}{nameof(Payments)}";
-    public static readonly string ComponentName = $"{nameof(Processor)}{nameof(Lambda)}";
+    public static readonly string ComponentName = $"{nameof(ConfigurationRecorder)}{nameof(Lambda)}";
 
     private readonly ILogger<Function> _logger;
 

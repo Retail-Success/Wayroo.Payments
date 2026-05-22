@@ -9,18 +9,18 @@ using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.SNS;
 using Amazon.CDK.AWS.SQS;
 using Constructs;
-using Wayroo.Payments.Processor.Lambda;
-using Function = Wayroo.Payments.Processor.Lambda.Function;
+using Wayroo.Payments.ConfigurationRecorder.Lambda;
+using Function = Wayroo.Payments.ConfigurationRecorder.Lambda.Function;
 
 namespace Wayroo.Payments.Infrastructure.Resources;
 
-internal class PaymentProcessorLambda
+internal class ConfigurationRecorderLambda
 {
     public readonly Queue Queue;
     public IFunction Resource { get; }
     public ILogGroup Logs { get; }
 
-    internal PaymentProcessorLambda(
+    internal ConfigurationRecorderLambda(
         Construct scope,
         string id,
         string environment,
@@ -33,7 +33,7 @@ internal class PaymentProcessorLambda
     {
         var functionName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}";
 
-        Logs = new LogGroup(scope, "PaymentProcessorLambdaLogs", new LogGroupProps
+        Logs = new LogGroup(scope, "ConfigurationRecorderLambdaLogs", new LogGroupProps
         {
             LogGroupClass = LogGroupClass.STANDARD,
             LogGroupName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}",
@@ -41,14 +41,14 @@ internal class PaymentProcessorLambda
             RemovalPolicy = RemovalPolicy.RETAIN
         });
 
-        var deadLetterQueue = new Queue(scope, "PaymentProcessorLambdaDLQ", new QueueProps
+        var deadLetterQueue = new Queue(scope, "ConfigurationRecorderLambdaDLQ", new QueueProps
         {
             QueueName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}-DLQ",
             RetentionPeriod = Duration.Days(14),
         });
 
         const int lambdaTimeoutSeconds = 5 * 60;
-        Queue = new Queue(scope, "PaymentProcessorLambdaQueue", new QueueProps
+        Queue = new Queue(scope, "ConfigurationRecorderLambdaQueue", new QueueProps
         {
             QueueName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}-Queue",
             VisibilityTimeout = Duration.Seconds(lambdaTimeoutSeconds * 6), // 6x the Lambda timeout to prevent reprocessing while it's being processed
@@ -65,7 +65,7 @@ internal class PaymentProcessorLambda
 
         var lambdaExecutionRole = Role.FromRoleName(
             scope,
-            "PaymentProcessorLambdaServiceRole",
+            "ConfigurationRecorderLambdaServiceRole",
             roleName: $"{environment}/WorkerRole",
             new FromRoleNameOptions { Mutable = false });
 
@@ -75,7 +75,7 @@ internal class PaymentProcessorLambda
             Architecture = Architecture.X86_64,
             Runtime = Runtime.DOTNET_10,
             Handler = $"{lambdaClassInfo.Assembly.GetName().Name}::{lambdaClassInfo.FullName}::{nameof(Function.FunctionHandler)}",
-            Description = "Processes Wayroo Payments messages.",
+            Description = "Records payment provider configurations received by Wayroo Payments.",
             Code = Code.FromBucketV2(
                 artifactsBucket,
                 lambdaSourceObjectKey),
@@ -122,7 +122,7 @@ internal class PaymentProcessorLambda
         Resource.MetricErrors()
             .CreateAlarm(
                 scope,
-                id: "PaymentProcessorLambdaErrorAlarm",
+                id: "ConfigurationRecorderLambdaErrorAlarm",
                 new CreateAlarmOptions
                 {
                     AlarmName =
@@ -141,7 +141,7 @@ internal class PaymentProcessorLambda
 
         // This alarm should cause an engineer to determine if a logic flaw or data shape change has occurred requiring a fix and new deployment.
         Logs.AddMetricFilter(
-                id: "PaymentProcessorLambdaLogErrorMetric",
+                id: "ConfigurationRecorderLambdaLogErrorMetric",
                 new MetricFilterOptions
                 {
                     FilterName = "Errors",
@@ -155,7 +155,7 @@ internal class PaymentProcessorLambda
             .Metric(new MetricOptions { Statistic = Stats.SUM, Period = Duration.Minutes(1) })
             .CreateAlarm(
                 scope,
-                id: "PaymentProcessorLambdaLogErrorAlarm",
+                id: "ConfigurationRecorderLambdaLogErrorAlarm",
                 new CreateAlarmOptions
                 {
                     AlarmName =

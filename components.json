@@ -10,11 +10,11 @@
     "artifactName": "Wayroo.Payments.Infrastructure",
     "type": "infrastructure"
   },
-  "Wayroo.Payments.Processor.Lambda": {
-    "path": "Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda",
-    "artifactName": "wayroo-payments-processor",
+  "Wayroo.Payments.ConfigurationRecorder.Lambda": {
+    "path": "Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda",
+    "artifactName": "wayroo-payments-configurationrecorder",
     "serviceName": "WayrooPayments",
-    "componentName": "ProcessorLambda",
+    "componentName": "ConfigurationRecorderLambda",
     "type": "lambda"
   }
 }

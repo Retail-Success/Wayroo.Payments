@@ -5,7 +5,7 @@
 
 # Structure
 
-- `Wayroo.Payments.Processor.Lambda` — the SQS-triggered worker lambda. `Function.cs` wires up
+- `Wayroo.Payments.ConfigurationRecorder.Lambda` — the SQS-triggered worker lambda. `Function.cs` wires up
   Serilog JSON logging and a DI service provider, and validates required env vars (declared in
   `EnvironmentVariableKeys.cs`) on cold start.
 - `Wayroo.Payments.Infrastructure` — the AWS CDK app that deploys the lambda (log group, SQS
