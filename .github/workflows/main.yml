@@ -1,0 +1,30 @@
+name: PR Title Jira Key Check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check-pr-title:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Validate Jira ticket in PR title
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PATTERN="WR-[0-9]+"
+
+          if echo "$PR_TITLE" | grep -qE "$PATTERN"; then
+            echo "✅ PR title contains a valid Jira ticket reference."
+            echo "   Title: $PR_TITLE"
+            echo "   Match: $(echo "$PR_TITLE" | grep -oE "$PATTERN")"
+          else
+            echo "❌ PR title must include a Jira ticket number (e.g. WR-17774)."
+            echo "   Current title: $PR_TITLE"
+            echo ""
+            echo "Accepted formats:"
+            echo "   WR-17774 Add login page"
+            echo "   [WR-17774] Add login page"
+            echo "   feat: WR-17774 Add login page"
+            exit 1
+          fi
