@@ -369,6 +369,4 @@ FodyWeavers.xsd
 # ai metadata
 .ai
 # Claude Code (developer-specific)
-.claude/settings.local.json
-
-Wayroo.ContentLibrary.MediaProcessor.Lambda/.claude/settings.local.json
+**/.claude/settings.local.json
