@@ -17,7 +17,7 @@ for the Wayroo Payments service resources:
 
 - IAM Roles & Policies: As roles and policies have a large blast radius for unintended ramifications,
   they are intentionally not managed here, but rather managed by the Infrastructure team. The
-  PaymentProcessor lambda assumes an existing `<environment>/WorkerRole`.
+  ConfigurationRecorder lambda assumes an existing `<environment>/WorkerRole`.
 
 ## Testing Locally
 

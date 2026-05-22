@@ -6,7 +6,7 @@ A Wayroo microservice for payments processing.
 
 | Project | Description |
 | --- | --- |
-| `Wayroo.Payments.Processor.Lambda` | SQS-triggered .NET 10 lambda. For now it logs on startup and acknowledges every message; payment-handling logic will be added here. |
+| `Wayroo.Payments.ConfigurationRecorder.Lambda` | SQS-triggered .NET 10 lambda. For now it logs on startup and acknowledges every message; payment-handling logic will be added here. |
 | `Wayroo.Payments.Infrastructure` | AWS CDK app that provisions the lambda and its supporting resources (log group, SQS queue + dead-letter queue, CloudWatch error alarms). |
 
 ## Building
@@ -28,8 +28,8 @@ See `Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure/Readme.md` fo
 ## Packaging the lambda
 
 ```bash
-dotnet lambda package --project-location Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda
+dotnet lambda package --project-location Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda
 ```
 
-This produces `WayrooPayments.ProcessorLambda.zip`, matching the `serviceName`/`componentName`
+This produces `WayrooPayments.ConfigurationRecorderLambda.zip`, matching the `serviceName`/`componentName`
 declared in `components.json`.

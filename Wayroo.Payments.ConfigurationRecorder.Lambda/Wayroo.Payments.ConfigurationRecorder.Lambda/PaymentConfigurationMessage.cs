@@ -1,4 +1,4 @@
-namespace Wayroo.Payments.Processor.Lambda;
+namespace Wayroo.Payments.ConfigurationRecorder.Lambda;
 
 /// <summary>
 /// The routing fields read from a queue message. The full message body is persisted verbatim as the

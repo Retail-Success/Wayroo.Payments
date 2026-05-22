@@ -48,5 +48,5 @@
     <Project
             Path="Wayroo.Payments.Models/Wayroo.Payments.Models/Wayroo.Payments.Models.csproj"/>
     <Project
-            Path="Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda/Wayroo.Payments.Processor.Lambda.csproj"/>
+            Path="Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.csproj"/>
 </Solution>

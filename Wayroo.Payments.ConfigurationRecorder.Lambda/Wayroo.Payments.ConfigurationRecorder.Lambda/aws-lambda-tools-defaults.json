@@ -6,6 +6,6 @@
   "function-runtime": "dotnet10",
   "function-memory-size": 512,
   "function-timeout": 300,
-  "function-handler": "Wayroo.Payments.Processor.Lambda::Wayroo.Payments.Processor.Lambda.Function::FunctionHandler",
+  "function-handler": "Wayroo.Payments.ConfigurationRecorder.Lambda::Wayroo.Payments.ConfigurationRecorder.Lambda.Function::FunctionHandler",
   "msbuild-parameters": "--self-contained true"
 }

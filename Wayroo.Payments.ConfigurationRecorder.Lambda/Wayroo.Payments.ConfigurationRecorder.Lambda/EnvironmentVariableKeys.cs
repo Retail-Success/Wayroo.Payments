@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Wayroo.Payments.Processor.Lambda;
+namespace Wayroo.Payments.ConfigurationRecorder.Lambda;
 
 public static class EnvironmentVariableKeys
 {
