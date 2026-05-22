@@ -37,7 +37,7 @@ internal class ResourceStack : Stack
         // the lambda + queue while configuration recording is unplugged. To re-enable persistence:
         //   1. Uncomment the table creation below and pass it to the lambda (configurationTable:).
         //   2. Restore the PaymentConfigurationTable property in InfrastructureResources.
-        //   3. Re-plug the recorder in Wayroo.Payments.Processor.Lambda/Function.cs.
+        //   3. Re-plug the recorder in Wayroo.Payments.ConfigurationRecorder.Lambda/Function.cs.
         // The default table name comes from the DataAccess options, matching how the lambda resolves
         // it at runtime; the table itself is named "{environment}-{tableName}".
         // var dbClientOptions = new DataAccess.DynamoDbClientOptions();
@@ -50,9 +50,9 @@ internal class ResourceStack : Stack
         return new InfrastructureResources
         {
             // PaymentConfigurationTable = configurationTable,
-            ProcessorLambda = new PaymentProcessorLambda(
+            ConfigurationRecorderLambda = new ConfigurationRecorderLambda(
                 this,
-                id: "PaymentProcessorLambda",
+                id: "ConfigurationRecorderLambda",
                 environment: config.Environment,
                 artifactsBucket: artifactsBucket,
                 functionVersion: config.LambdaArtifactVersion,
