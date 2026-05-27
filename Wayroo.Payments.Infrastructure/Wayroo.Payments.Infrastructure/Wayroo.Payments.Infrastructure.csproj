@@ -7,6 +7,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <!-- Transitive advisories flow in via the referenced recorder lambda (Orders SDK -> Refit,
+             IdentityModel) — out of our control until the SDK updates them. -->
+        <NoWarn>$(NoWarn);NU1901;NU1902;NU1903;NU1904</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

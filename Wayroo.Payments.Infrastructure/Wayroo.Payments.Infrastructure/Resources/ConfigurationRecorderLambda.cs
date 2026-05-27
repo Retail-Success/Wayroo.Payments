@@ -27,7 +27,8 @@ internal class ConfigurationRecorderLambda
         IBucket artifactsBucket,
         string functionVersion,
         ITopic alarmTopic,
-        PaymentConfigurationTable configurationTable)
+        PaymentConfigurationTable configurationTable,
+        string ordersApiBaseUrl)
     {
         var functionName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}";
 
@@ -83,6 +84,9 @@ internal class ConfigurationRecorderLambda
             {
                 [EnvironmentVariableKeys.PaymentConfigurationTableName] = configurationTable.Resource.TableName,
                 [EnvironmentVariableKeys.AwsRegion] = "us-east-1",
+                [EnvironmentVariableKeys.OrdersApiBaseUrl] = ordersApiBaseUrl,
+                [EnvironmentVariableKeys.SourceQueueUrl] = Queue.QueueUrl,
+                [EnvironmentVariableKeys.DeadLetterQueueUrl] = deadLetterQueue.QueueUrl,
             },
             LogGroup = Logs,
             // While CDK can auto-create a role and policy aligning with the needs of this resource and the resources it's been configured to interact with,
@@ -93,14 +97,18 @@ internal class ConfigurationRecorderLambda
         Resource.AddEventSource(new SqsEventSource(Queue, new SqsEventSourceProps
         {
             BatchSize = 5,
-            ReportBatchItemFailures = true
+            // The function handles its own failures (ProcessFailureHandler re-queues / dead-letters per
+            // exception type), so partial-batch failure reporting is not used.
+            ReportBatchItemFailures = false
         }));
         Queue.GrantConsumeMessages(Resource);
 
         // The execution role is imported as immutable (see lambdaExecutionRole above), so CDK cannot
-        // attach the table/KMS policies here — they must be present on the external "{env}/WorkerRole":
+        // attach policies here — they must be present on the external "{env}/WorkerRole":
         //   - dynamodb:PutItem, GetItem, Query on the table
         //   - kms:Decrypt, kms:GenerateDataKey on the table's customer-managed key (writes use the CMK)
+        //   - sqs:SendMessage on this queue (re-queue to retry) and its dead-letter queue
+        //   - outbound network access to the Orders API (resolving store/tenant from the account number)
 
         ConfigureAlarms(
             scope,

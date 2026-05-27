@@ -23,6 +23,32 @@
         "resolved": "2.2.1",
         "contentHash": "DnDW50+hggx+mQm7uphftCUJqSk9M68Dv+PVqRVd+f3soxYksFk+9QRZHmjBkh3+yG1JPGUPcPBqxOMGcfcA2w=="
       },
+      "AWSSDK.SQS": {
+        "type": "Direct",
+        "requested": "[4.0.2.26, )",
+        "resolved": "4.0.2.26",
+        "contentHash": "7IXKewM//Hv4rhlRt0I85uImtaSjnjmd+JSwaSwM89iwbhGnSsUvYIUYXIoo9wzuJMcTE8Ggw8yvslHEDxqZLw==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.3.32, 5.0.0)"
+        }
+      },
+      "Luci.Orders.SDK": {
+        "type": "Direct",
+        "requested": "[8.0.242, )",
+        "resolved": "8.0.242",
+        "contentHash": "dY3k8fELZKK8j3pcvDaulgAh7KG5idMqqQ65LR62fJAHXV1/3B5UYGAjOzHdbw14+N4T3NvHo9Laai3stxB7pQ==",
+        "dependencies": {
+          "Ardalis.SmartEnum.JsonNet": "8.1.0",
+          "Luci.PaymentTokens": "5.0.3",
+          "Luci.ProPay.Messages": "1.8.23",
+          "RetailSuccess.Extensions": "2.0.1",
+          "RetailSuccess.Money": "2.0.1",
+          "RetailSuccess.Pagination": "5.0.1",
+          "RetailSuccess.PaymentGateway.Propay": "6.0.10",
+          "RetailSuccess.SDK.Core": "5.0.3",
+          "Wayroo.Common": "1.8.19"
+        }
+      },
       "Microsoft.CodeAnalysis.BannedApiAnalyzers": {
         "type": "Direct",
         "requested": "[3.3.4, )",
@@ -94,10 +120,34 @@
           "Serilog": "2.10.0"
         }
       },
+      "Wayroo.Common": {
+        "type": "Direct",
+        "requested": "[1.8.21, )",
+        "resolved": "1.8.21",
+        "contentHash": "X20GP/x6fWuFfhDRdX6JWgTGmq+3jS3cnmJ3cWcQ1ocVbdDSMTJGs9dYxjGqZD/gnjcYsvLDjI2PqiR0yVjexw==",
+        "dependencies": {
+          "Destructurama.Attributed": "3.1.0",
+          "Newtonsoft.Json": "13.0.3"
+        }
+      },
+      "Ardalis.SmartEnum": {
+        "type": "Transitive",
+        "resolved": "8.1.0",
+        "contentHash": "+OpcDNwgfwdKEhEwq6U5lrXiBpdA3LxfZR7nTtF6vzbkXc1hKa2Uv/rHduzxwNLYrzOfR/7QUVyjWTliSS7pOA=="
+      },
+      "Ardalis.SmartEnum.JsonNet": {
+        "type": "Transitive",
+        "resolved": "8.1.0",
+        "contentHash": "NX/cSpNY2yzZBVRLIIaHO0RB0GvLfb+SLqttbGxe8apRbUDSF7IflcCv3RmAW3bGq0/UeWR6x39Re9vOoQ1oZg==",
+        "dependencies": {
+          "Ardalis.SmartEnum": "8.1.0",
+          "Newtonsoft.Json": "13.0.3"
+        }
+      },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.3.15",
-        "contentHash": "1haLKyBjhwV34uafRco2du36ACf2k0pjKqhYj//y4TROSk3OW/faov0/+zGZidUyUuNP06hvUb8U/LgNPKsSeg=="
+        "resolved": "4.0.3.32",
+        "contentHash": "Z+FDac2Sb5dRImj87wVcgsj5PbE34CXDPGFodk11AKTx5B30/NgsnYynZH2NYS/uPZylzcX23NEjGbcMSbqAwQ=="
       },
       "AWSSDK.DynamoDBv2": {
         "type": "Transitive",
@@ -105,6 +155,45 @@
         "contentHash": "oF7L2hcbRpzlJnib8HHy6TtyGCJRZuwCGJgAxHJfYdZkWFTY2mV/RgxaZDy45Vq4snje6TXD5MN11wd7m9EGxQ==",
         "dependencies": {
           "AWSSDK.Core": "[4.0.3.15, 5.0.0)"
+        }
+      },
+      "Destructurama.Attributed": {
+        "type": "Transitive",
+        "resolved": "3.1.0",
+        "contentHash": "WQtdbdLTraFSYl4Peo2YeyKung1SYC8s+HruNsi6o68BybZEd1bq8QPyT/cuwKpO6IPn/gW8F/dEAE+UhMoMWA==",
+        "dependencies": {
+          "Serilog": "[2.10.0, 4.0.0)"
+        }
+      },
+      "Luci.PaymentTokens": {
+        "type": "Transitive",
+        "resolved": "5.0.3",
+        "contentHash": "0+/WKrp6t7uWSNAAbFjpO5ya2HAdocSX05bZCr2ZiiHg+G7dKjbgYnMy+EehSJUvyl/YpcMhWKDKpGRgKwL+LA==",
+        "dependencies": {
+          "Ardalis.SmartEnum": "2.1.0",
+          "Destructurama.Attributed": "3.1.0",
+          "Microsoft.Extensions.Configuration.Abstractions": "6.0.0",
+          "Microsoft.Extensions.DependencyInjection": "6.0.1",
+          "Microsoft.Extensions.Options": "6.0.0",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "6.0.0",
+          "Newtonsoft.Json": "13.0.3"
+        }
+      },
+      "Luci.ProPay.Messages": {
+        "type": "Transitive",
+        "resolved": "1.8.23",
+        "contentHash": "mv6cZOyVuudAiQoOqVZ3Kl2eF+2xvKzPbIyaPIYEDGsA5PpVqdVbWCn4Xa0WdRo0yvLeHKpRWlw03F5WHNVG+g==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "RetailSuccess.Messaging": "3.1.5"
+        }
+      },
+      "Microsoft.Extensions.Caching.Abstractions": {
+        "type": "Transitive",
+        "resolved": "6.0.0",
+        "contentHash": "bcz5sSFJbganH0+YrfvIjJDIcKNW7TL07C4d1eTmXy/wOt52iz4LVogJb6pazs7W0+74j0YpXFErvp++Aq5Bsw==",
+        "dependencies": {
+          "Microsoft.Extensions.Primitives": "6.0.0"
         }
       },
       "Microsoft.Extensions.Configuration.Abstractions": {
@@ -115,10 +204,29 @@
           "Microsoft.Extensions.Primitives": "10.0.7"
         }
       },
+      "Microsoft.Extensions.Configuration.Binder": {
+        "type": "Transitive",
+        "resolved": "6.0.1",
+        "contentHash": "akSVfaHcxSSlSjC/dVpHbPLDHvYd/l/x0dlp2v+9zQVtSaSH3BIfO8AXvGgDEN/VPCCGeHigfflqkH3v6+RI4Q==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "6.0.1"
+        }
+      },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
         "resolved": "10.0.7",
         "contentHash": "Z6mfFEaFcwCfSboxJwOLfu7/31npCY9q70WUamHW/vRQhDvBKOT4Vf9YkZj5J6hLvJpb0oDEYfHunQZj0xxvKw=="
+      },
+      "Microsoft.Extensions.Http": {
+        "type": "Transitive",
+        "resolved": "7.0.0",
+        "contentHash": "9Pq9f/CvOSz0t9yQa6g1uWpxa2sm13daLFm8EZwy9MaQUjKXWdNUXQwIxwhmba5N83UIqURiPHSNqGK1vfWF2w==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "7.0.0",
+          "Microsoft.Extensions.Logging": "7.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "7.0.0",
+          "Microsoft.Extensions.Options": "7.0.0"
+        }
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Transitive",
@@ -137,10 +245,173 @@
           "Microsoft.Extensions.Primitives": "10.0.7"
         }
       },
+      "Microsoft.Extensions.Options.ConfigurationExtensions": {
+        "type": "Transitive",
+        "resolved": "6.0.1",
+        "contentHash": "ad1cS1bEAM0mDZaNQhltnq9UctgWputuL4GnxsX4Dugkk1as6bcSLQdHJQjacP6DgTS3utZY1bZXfry9GvAx4Q==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "6.0.1",
+          "Microsoft.Extensions.Configuration.Binder": "6.0.1",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
+          "Microsoft.Extensions.Options": "6.0.1",
+          "Microsoft.Extensions.Primitives": "6.0.1"
+        }
+      },
+      "Microsoft.Extensions.Options.DataAnnotations": {
+        "type": "Transitive",
+        "resolved": "6.0.0",
+        "contentHash": "Fvs4plZYQT/iF/JsYwP/pppQRvQC211enBjCoIu/355M+aunlzSyzN/n3wPibyY76794MFLkLVT47JCBc3porg==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
+          "Microsoft.Extensions.Options": "6.0.0",
+          "System.ComponentModel.Annotations": "5.0.0"
+        }
+      },
       "Microsoft.Extensions.Primitives": {
         "type": "Transitive",
         "resolved": "10.0.7",
         "contentHash": "D5M0Jr551iTgwkZMN9rm0pSkgNLj5quUWQUmQPMZh7k/bnvZTnXRGfE2KuvXf1EEjt/ofD9yw9IumpgdP9QCnw=="
+      },
+      "Microsoft.IdentityModel.Abstractions": {
+        "type": "Transitive",
+        "resolved": "6.31.0",
+        "contentHash": "SBa2DGEZpMThT3ki6lOK5SwH+fotHddNBKH+pfqrlINnl999BreRS9G0QiLruwfmcTDnFr8xwmNjoGnPQqfZwg=="
+      },
+      "Microsoft.IdentityModel.JsonWebTokens": {
+        "type": "Transitive",
+        "resolved": "6.31.0",
+        "contentHash": "r0f4clrrlFApwSf2GRpS5X8hL54h1WUlZdq9ZoOy+cJOOqtNhhdfkfkqwxsTGCH/Ae7glOWNxykZzyRXpwcXVQ==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Tokens": "6.31.0"
+        }
+      },
+      "Microsoft.IdentityModel.Logging": {
+        "type": "Transitive",
+        "resolved": "6.31.0",
+        "contentHash": "YzW5O27nTXxNgNKm+Pud7hXjUlDa2JshtRG+WftQvQIsBUpFA/WjhxG2uO8YanfXbb/IT9r8Cu/VdYkvZ3+9/g==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Abstractions": "6.31.0"
+        }
+      },
+      "Microsoft.IdentityModel.Tokens": {
+        "type": "Transitive",
+        "resolved": "6.31.0",
+        "contentHash": "Q1Ej/OAiqi5b/eB8Ozo5FnQ6vlxjgiomnWWenDi2k7+XqhkA2d5TotGtNXpWcWiGmrotNA/o8p51YesnziA0Sw==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Logging": "6.31.0"
+        }
+      },
+      "Newtonsoft.Json": {
+        "type": "Transitive",
+        "resolved": "13.0.3",
+        "contentHash": "HrC5BXdl00IP9zeV+0Z848QWPAoCr9P3bDEZguI+gkLcBKAOxix/tLEAAHC+UvDNPv4a2d18lOReHMOagPa+zQ=="
+      },
+      "Refit": {
+        "type": "Transitive",
+        "resolved": "7.0.0",
+        "contentHash": "MeOXucNjebiLiOM+hM4niN2cWLlwaQWNCGZs0LDUEoCVwOtV/IWOMOqlAbUeb8Y0/iOgMai2g6Gz9M/d6V7gtA=="
+      },
+      "Refit.HttpClientFactory": {
+        "type": "Transitive",
+        "resolved": "7.0.0",
+        "contentHash": "27zuHqcN2BJbNqGF0OlUAPEKNnPFibJVHsS5XnViS2Brw1ceCbzYsDqP19dlgWCb/sLGFxSpRWhkCimOo8jljw==",
+        "dependencies": {
+          "Microsoft.Extensions.Http": "7.0.0",
+          "Refit": "7.0.0"
+        }
+      },
+      "Refit.Newtonsoft.Json": {
+        "type": "Transitive",
+        "resolved": "7.0.0",
+        "contentHash": "wyF5v8palQYkbkRn/cDSAvDulZjY5kL2XQUD76nSbcAwqUnMaRRuEPJt3njR0+dPoABuV8RYqSvYDce8+enJ2g==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.3",
+          "Refit": "7.0.0"
+        }
+      },
+      "RetailSuccess.Caching": {
+        "type": "Transitive",
+        "resolved": "3.0.1",
+        "contentHash": "fqYhVXOd2mtpKlCq8R4YGaklWSW9a+e6RDySAfbguj+HkBhRvtzt8P/kUgGh7uuTIYWMx/V93Ee1llRX3HZ3qw==",
+        "dependencies": {
+          "Microsoft.Extensions.Caching.Abstractions": "6.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
+          "Microsoft.Extensions.Options": "6.0.0"
+        }
+      },
+      "RetailSuccess.Extensions": {
+        "type": "Transitive",
+        "resolved": "2.0.1",
+        "contentHash": "o1oPl5r7Ywzkg7V/+/3pgbD1p/b5PemfVk23PTAqGnnQuN6yUz2sCqJ4Tt7oku1sD4AiU6804lT0elo6peNCrg=="
+      },
+      "RetailSuccess.Extensions.Configuration": {
+        "type": "Transitive",
+        "resolved": "2.0.0",
+        "contentHash": "XHvQIWHkT7sGJM/GTRTZNbwTWqTBxdubjHvdKGnofbxfJ/JXwDm3X1Jid6AOglHa+Ur29dYlpUpYc9OPVsTaSA==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Abstractions": "3.1.0",
+          "Microsoft.Extensions.Configuration.Binder": "3.1.0"
+        }
+      },
+      "RetailSuccess.Messaging": {
+        "type": "Transitive",
+        "resolved": "3.1.5",
+        "contentHash": "mQ1UEcS1aSn7Zh802RpQDU+zUPZqObgMhBdR9UgfriuzK91pQqpg+MThPmBDTEkiRjorOSkv+JFJI9Fui6hGhQ==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging": "6.0.0",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "6.0.0",
+          "Microsoft.Extensions.Options.DataAnnotations": "6.0.0",
+          "Wayroo.Common": "1.8.7"
+        }
+      },
+      "RetailSuccess.Money": {
+        "type": "Transitive",
+        "resolved": "2.0.1",
+        "contentHash": "gB9px+S4NjDIMCrDdW4QVUp90NMCwBZKHhVbNTkh34fNeZVqKyaqsjdZwN/GCfUSLRTZyK9sBwzY46E8BrOuxg=="
+      },
+      "RetailSuccess.Pagination": {
+        "type": "Transitive",
+        "resolved": "5.0.1",
+        "contentHash": "tqikA0Q1+QGUU7wlvccR63y1f+NQSoNTXbDYPo24QTQDR+pXeFb/0GtMZeXDWneIlcn0CKCUtPz76xDiirvWRw=="
+      },
+      "RetailSuccess.PaymentGateway.Propay": {
+        "type": "Transitive",
+        "resolved": "6.0.10",
+        "contentHash": "rcxTgwSb34KOCrxKEG3a/W+pVjvLruufPrHWGT2tft3HzNGE9hMjrsxIh8zShA5IoXAJLfL1/T2/ioV61M2Tlw==",
+        "dependencies": {
+          "Destructurama.Attributed": "3.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "6.0.0",
+          "Microsoft.Extensions.Http": "6.0.1",
+          "Microsoft.Extensions.Options": "6.0.1",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "6.0.1",
+          "Newtonsoft.Json": "13.0.3",
+          "RetailSuccess.Extensions.Configuration": "2.0.0"
+        }
+      },
+      "RetailSuccess.SDK.Core": {
+        "type": "Transitive",
+        "resolved": "5.0.3",
+        "contentHash": "66i5BTROl9D2LpRj00aU6eG9EaLBbpSPfQe2uTWM61LfgybtW/tORGRTQ9v+HQ40OD7W+JyM4JSTm5xY8hf/Qg==",
+        "dependencies": {
+          "Refit.HttpClientFactory": "7.0.0",
+          "Refit.Newtonsoft.Json": "7.0.0",
+          "RetailSuccess.Caching": "3.0.1",
+          "System.IdentityModel.Tokens.Jwt": "6.31.0"
+        }
+      },
+      "System.ComponentModel.Annotations": {
+        "type": "Transitive",
+        "resolved": "5.0.0",
+        "contentHash": "dMkqfy2el8A8/I76n2Hi1oBFEbG1SfxD2l5nhwXV3XjlnOmwxJlQbYpJH4W51odnU9sARCSAgv7S3CyAFMkpYg=="
+      },
+      "System.IdentityModel.Tokens.Jwt": {
+        "type": "Transitive",
+        "resolved": "6.31.0",
+        "contentHash": "OTlLhhNHODxZvqst0ku8VbIdYNKi25SyM6/VdbpNUe6aItaecVRPtURGvpcQpzltr9H0wy+ycAqBqLUI4SBtaQ==",
+        "dependencies": {
+          "Microsoft.IdentityModel.JsonWebTokens": "6.31.0",
+          "Microsoft.IdentityModel.Tokens": "6.31.0"
+        }
       },
       "wayroo.payments.dataaccess": {
         "type": "Project",

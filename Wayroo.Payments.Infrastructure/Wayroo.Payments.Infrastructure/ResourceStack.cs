@@ -52,7 +52,8 @@ internal class ResourceStack : Stack
                 artifactsBucket: artifactsBucket,
                 functionVersion: config.LambdaArtifactVersion,
                 alarmTopic: alarmTopic,
-                configurationTable: configurationTable)
+                configurationTable: configurationTable,
+                ordersApiBaseUrl: config.OrdersApiBaseUrl)
         };
     }
 
@@ -106,12 +107,25 @@ internal class ResourceStack : Stack
             }
         ).ValueAsString;
 
+        var ordersApiBaseUrl = new CfnParameter(
+            this,
+            id: "OrdersApiBaseUrl",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description =
+                    "The absolute base URL of the Orders API used to resolve store/tenant from a ProPay account.",
+                MinLength = 1, // force this to be supplied
+            }
+        ).ValueAsString;
+
         return new StackConfig
         {
             Environment = environment,
             AlarmTopicArn = alarmTopicArn,
             ArtifactsBucketArn = artifactsBucketArn,
             LambdaArtifactVersion = lambdaArtifactVersion,
+            OrdersApiBaseUrl = ordersApiBaseUrl,
         };
     }
 }
