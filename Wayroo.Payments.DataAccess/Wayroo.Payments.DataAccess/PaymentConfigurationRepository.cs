@@ -14,8 +14,8 @@ public class PaymentConfigurationRepository(
         PaymentProviderConfiguration configuration,
         CancellationToken cancellationToken)
     {
-        configuration.LastModifiedTimestamp = DateTimeOffset.UtcNow;
-        configuration.ReceivedTimestamp ??= configuration.LastModifiedTimestamp;
+        configuration.ModifiedOn = DateTimeOffset.UtcNow;
+        configuration.CreatedOn ??= configuration.ModifiedOn;
 
         var request = new PutItemRequest
         {
@@ -24,9 +24,9 @@ public class PaymentConfigurationRepository(
         };
 
         logger.LogInformation(
-            "Upserting payment configuration for tenant {TenantId} provider {Provider} into {TableName}",
-            configuration.TenantId,
-            configuration.Provider,
+            "Upserting payment configuration for store {StoreId} provider {ProviderId} into {TableName}",
+            configuration.StoreId,
+            configuration.ProviderId,
             request.TableName);
 
         await dynamoDbClient.PutItemAsync(request, cancellationToken);
@@ -34,14 +34,14 @@ public class PaymentConfigurationRepository(
     }
 
     public async Task<PaymentProviderConfiguration?> GetConfiguration(
-        string tenantId,
-        string provider,
+        long storeId,
+        string providerId,
         CancellationToken cancellationToken)
     {
         var request = new GetItemRequest
         {
             TableName = clientOptions.PaymentConfigurationTableName,
-            Key = PaymentConfigurationSchemaProvider.GetRecordIdentifiers(tenantId, provider),
+            Key = PaymentConfigurationSchemaProvider.GetRecordIdentifiers(storeId, providerId),
         };
 
         var response = await dynamoDbClient.GetItemAsync(request, cancellationToken);
@@ -49,5 +49,38 @@ public class PaymentConfigurationRepository(
         return response.Item is { Count: > 0 }
             ? PaymentConfigurationSchemaProvider.GetModel(response.Item)
             : null;
+    }
+
+    public async Task<IReadOnlyList<PaymentProviderConfiguration>> GetConfigurationsForStore(
+        long storeId,
+        CancellationToken cancellationToken)
+    {
+        var configurations = new List<PaymentProviderConfiguration>();
+        Dictionary<string, AttributeValue>? lastEvaluatedKey = null;
+
+        do
+        {
+            var request = new QueryRequest
+            {
+                TableName = clientOptions.PaymentConfigurationTableName,
+                KeyConditionExpression = "#storeId = :storeId",
+                ExpressionAttributeNames = new Dictionary<string, string>
+                {
+                    ["#storeId"] = PaymentConfigurationSchemaProvider.AttributeNameForPartitionKey,
+                },
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                {
+                    [":storeId"] = PaymentConfigurationSchemaProvider.GetPartitionKeyValue(storeId),
+                },
+                ExclusiveStartKey = lastEvaluatedKey,
+            };
+
+            var response = await dynamoDbClient.QueryAsync(request, cancellationToken);
+            configurations.AddRange(response.Items.Select(PaymentConfigurationSchemaProvider.GetModel));
+            lastEvaluatedKey = response.LastEvaluatedKey is { Count: > 0 } ? response.LastEvaluatedKey : null;
+        }
+        while (lastEvaluatedKey is not null);
+
+        return configurations;
     }
 }

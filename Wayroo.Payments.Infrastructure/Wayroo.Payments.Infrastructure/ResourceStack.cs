@@ -33,30 +33,26 @@ internal class ResourceStack : Stack
             "ArtifactsBucket",
             config.ArtifactsBucketArn);
 
-        // TEMP: the PaymentConfiguration DynamoDB table is commented out so a deploy provisions only
-        // the lambda + queue while configuration recording is unplugged. To re-enable persistence:
-        //   1. Uncomment the table creation below and pass it to the lambda (configurationTable:).
-        //   2. Restore the PaymentConfigurationTable property in InfrastructureResources.
-        //   3. Re-plug the recorder in Wayroo.Payments.ConfigurationRecorder.Lambda/Function.cs.
         // The default table name comes from the DataAccess options, matching how the lambda resolves
         // it at runtime; the table itself is named "{environment}-{tableName}".
-        // var dbClientOptions = new DataAccess.DynamoDbClientOptions();
-        // var configurationTable = new PaymentConfigurationTable(
-        //     this,
-        //     id: "PaymentConfigurationTable",
-        //     config.Environment,
-        //     dbClientOptions.PaymentConfigurationTableName);
+        var dbClientOptions = new DataAccess.DynamoDbClientOptions();
+        var configurationTable = new PaymentConfigurationTable(
+            this,
+            id: "PaymentConfigurationTable",
+            config.Environment,
+            dbClientOptions.PaymentConfigurationTableName);
 
         return new InfrastructureResources
         {
-            // PaymentConfigurationTable = configurationTable,
+            PaymentConfigurationTable = configurationTable,
             ConfigurationRecorderLambda = new ConfigurationRecorderLambda(
                 this,
                 id: "ConfigurationRecorderLambda",
                 environment: config.Environment,
                 artifactsBucket: artifactsBucket,
                 functionVersion: config.LambdaArtifactVersion,
-                alarmTopic: alarmTopic)
+                alarmTopic: alarmTopic,
+                configurationTable: configurationTable)
         };
     }
 
