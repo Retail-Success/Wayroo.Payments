@@ -54,7 +54,6 @@ public class LambdaFunctionTests(TestFixture fixture)
         const long expectedStoreId = 1007;
         const long expectedTenantId = 42;
         const string expectedProviderId = "propay";
-        const string expectedPayload = "{\"merchantKey\":\"secret-redacted\"}";
 
         // Stub the Orders endpoint the lookup will hit. Serve both PascalCase and camelCase so the
         // Refit deserializer matches regardless of its case-sensitivity configuration.
@@ -71,28 +70,41 @@ public class LambdaFunctionTests(TestFixture fixture)
 
         SetRecorderEnvironment(tableName);
 
+        // Mirrors the shape of the real provider webhook the recorder reads — only payload.accountNum is
+        // consumed; the whole body is persisted verbatim as ProviderConfiguration.
+        var messageBody = JsonSerializer.Serialize(new
+        {
+            notificationId = Guid.NewGuid().ToString(),
+            eventType = "merchantware.credentials.created",
+            eventDateTimeUTC = "04/17/2025 10:37:42",
+            payload = new
+            {
+                accountNum = accountNumber.ToString(),
+                merchantId = "290031234BK1765",
+                merchantName = "Shoppers Stop1",
+                tapToPay = new
+                {
+                    terminalId = "76539084",
+                    activationCode = "9874923947293%9899700098XHKL",
+                    merchantSiteId = "3Q28PMZA",
+                    merchantKey = "4ZV7Q-DMJ6R-AZEGY-NNYFE-CNFF3",
+                },
+            },
+        });
+
         var function = new Function();
         var sqsEvent = new SQSEvent
         {
             Records = new List<SQSEvent.SQSMessage>
             {
-                new()
-                {
-                    MessageId = Guid.NewGuid().ToString(),
-                    Body = JsonSerializer.Serialize(new PaymentConfigurationMessage
-                    {
-                        AccountNumber = accountNumber,
-                        ProviderId = expectedProviderId,
-                        ProviderConfiguration = expectedPayload,
-                    }),
-                },
+                new() { MessageId = Guid.NewGuid().ToString(), Body = messageBody },
             },
         };
 
         // When the lambda processes the SQS event
         await function.FunctionHandler(sqsEvent, new TestLambdaContext { RemainingTime = TimeSpan.FromMinutes(5) });
 
-        // Then a configuration row exists in DynamoDB with the resolved store/tenant
+        // Then a configuration row exists in DynamoDB with the resolved store/tenant + body verbatim
         var response = await dynamoDbClient.GetItemAsync(new GetItemRequest
         {
             TableName = tableName,
@@ -109,7 +121,7 @@ public class LambdaFunctionTests(TestFixture fixture)
         response.Item["ProviderId"].S.Should().Be(expectedProviderId);
         response.Item["TenantId"].N.Should().Be(expectedTenantId.ToString());
         response.Item["AccountId"].S.Should().Be(accountNumber.ToString());
-        response.Item["ProviderConfiguration"].S.Should().Be(expectedPayload);
+        response.Item["ProviderConfiguration"].S.Should().Be(messageBody);
         response.Item.Should().ContainKey("CreatedOn");
         response.Item.Should().ContainKey("ModifiedOn");
     }

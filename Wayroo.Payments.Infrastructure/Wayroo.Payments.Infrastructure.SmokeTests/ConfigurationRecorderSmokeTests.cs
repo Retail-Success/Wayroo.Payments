@@ -65,10 +65,24 @@ public class ConfigurationRecorderSmokeTests
     [Fact]
     public async Task SendingMessageToConfigurationQueue_PersistsResolvedConfiguration()
     {
-        // Use a unique synthetic ProviderId so we never collide with real per-store data and can
-        // identify (and clean up) exactly the row this test produced.
-        var smokeTestProviderId = $"propay-smoketest-{Guid.NewGuid():N}";
+        // Hard-coded to "propay" to match the handler's default until the upstream EventBridge
+        // integration dispatches the provider. NOTE: this means the smoke test overwrites (and then
+        // deletes) the real (storeId, "propay") row for the configured test account — make sure
+        // TestPropayAccountNumber always points at a designated test account whose propay config you
+        // are OK with the smoke test clobbering.
+        const string smokeTestProviderId = "propay";
         var smokeTestPayload = $"{{\"smokeTest\":\"{DateTime.UtcNow:O}\"}}";
+
+        // Mirrors the provider-webhook shape the lambda reads: only payload.accountNum is used for the
+        // lookup; the whole body is persisted verbatim as ProviderConfiguration.
+        var messageBody = JsonSerializer.Serialize(new
+        {
+            payload = new
+            {
+                accountNum = _testAccountNumber,
+                ProviderConfiguration = smokeTestPayload,
+            },
+        });
 
         var queueUrl = (await _sqsClient.GetQueueUrlAsync(_queueName)).QueueUrl;
         _output.WriteLine($"Sending smoke test message to {queueUrl} with ProviderId={smokeTestProviderId}");
@@ -76,12 +90,7 @@ public class ConfigurationRecorderSmokeTests
         var sendResponse = await _sqsClient.SendMessageAsync(new SendMessageRequest
         {
             QueueUrl = queueUrl,
-            MessageBody = JsonSerializer.Serialize(new
-            {
-                AccountNumber = _testAccountNumber,
-                ProviderId = smokeTestProviderId,
-                ProviderConfiguration = smokeTestPayload,
-            }),
+            MessageBody = messageBody,
         });
         _output.WriteLine($"Sent SQS message {sendResponse.MessageId}; polling {_tableName} for the resulting row...");
 
@@ -93,7 +102,7 @@ public class ConfigurationRecorderSmokeTests
             persisted.Should().NotBeNull(
                 $"expected a configuration row with ProviderId '{smokeTestProviderId}' to appear in {_tableName} within {PollTimeout.TotalSeconds}s.");
             persisted!["AccountId"].S.Should().Be(_testAccountNumber.ToString());
-            persisted["ProviderConfiguration"].S.Should().Be(smokeTestPayload);
+            persisted["ProviderConfiguration"].S.Should().Be(messageBody);
             persisted["TenantId"].N.Should().NotBeNullOrEmpty();
             _output.WriteLine($"Row found: StoreId={persisted["StoreId"].N}, TenantId={persisted["TenantId"].N}");
         }
