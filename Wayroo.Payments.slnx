@@ -43,15 +43,10 @@
         <File Path=".ci/pipelines/templates/test-pipeline/run-smoke-tests.yml" />
     </Folder>
     <Folder Name="/tests/">
-        <Project Path="Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.UnitTests/Wayroo.Payments.ConfigurationRecorder.Lambda.UnitTests.csproj">
-            <Build Solution="Debug|*" Project="false" />
-        </Project>
-        <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.IntegrationTests/Wayroo.Payments.DataAccess.IntegrationTests.csproj">
-            <Build Solution="Debug|*" Project="false" />
-        </Project>
-        <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.UnitTests/Wayroo.Payments.DataAccess.UnitTests.csproj">
-            <Build Solution="Debug|*" Project="false" />
-        </Project>
+        <Project Path="Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.IntegrationTests/Wayroo.Payments.ConfigurationRecorder.Lambda.IntegrationTests.csproj" />
+        <Project Path="Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.UnitTests/Wayroo.Payments.ConfigurationRecorder.Lambda.UnitTests.csproj" />
+        <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.IntegrationTests/Wayroo.Payments.DataAccess.IntegrationTests.csproj" />
+        <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.UnitTests/Wayroo.Payments.DataAccess.UnitTests.csproj" />
     </Folder>
     <Project Path="Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.csproj" />
     <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.csproj" />
