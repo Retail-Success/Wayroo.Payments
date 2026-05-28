@@ -21,12 +21,13 @@ public class Function
     private readonly IMessageHandler _messageHandler;
     private readonly ProcessFailureHandler _failureHandler;
 
-    public Function() : this(BuildServiceProvider())
+    public Function() : this(new ServiceCollection())
     {
     }
 
-    private Function(IServiceProvider serviceProvider, ILogger<Function>? logger = null)
+    private Function(IServiceCollection services, ILogger<Function>? logger = null)
     {
+        var serviceProvider = BuildServiceProvider(services);
         _logger = logger ?? serviceProvider.GetRequiredService<ILogger<Function>>();
         _messageHandler = serviceProvider.GetRequiredService<IMessageHandler>();
         _failureHandler = serviceProvider.GetRequiredService<ProcessFailureHandler>();
@@ -72,7 +73,7 @@ public class Function
         _logger.LogInformation("Finished processing messages");
     }
 
-    private static ServiceProvider BuildServiceProvider()
+    private static IServiceProvider BuildServiceProvider(IServiceCollection services)
     {
         Log.Logger = new LoggerConfiguration()
             .WriteTo.Console(formatter: new Serilog.Formatting.Json.JsonFormatter())
@@ -84,7 +85,6 @@ public class Function
 
         ValidateRequiredEnvironmentVariables(configuration);
 
-        var services = new ServiceCollection();
         services.AddLogging(lb => lb.AddSerilog(Log.Logger));
 
         // DynamoDB persistence.
