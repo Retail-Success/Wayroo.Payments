@@ -8,3 +8,8 @@ variables:
   # Role assumed to run the CloudFormation deploy.
   CF_ROLE_ARN: arn:aws:iam::329543726915:role/qa-VSTS-ManageCFRole
   awsCredentialsAccount: rs-aws-luci-qa
+  # VPC the recorder lambda runs in — needed so the lambda can resolve internal hostnames like
+  # orders.luci-qa when looking up the store/tenant for a payment account. Mirrors the values
+  # Wayroo.Notification uses for qa.
+  WayrooVPCId: vpc-088db7ceeb968a151
+  ENVIRONMENT_VPC_SUBNET_IDS: "subnet-083815a10c8b59fca,subnet-0e952719636380ad2"
