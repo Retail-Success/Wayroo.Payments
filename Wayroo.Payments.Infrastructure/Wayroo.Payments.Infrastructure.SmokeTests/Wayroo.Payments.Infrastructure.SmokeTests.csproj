@@ -13,7 +13,7 @@
     <ItemGroup>
         <!-- Enable ease of assertions and improve readability (this is a fork of FluentAssertions which switched to a pay model with v8.x) -->
         <PackageReference Include="AwesomeAssertions" Version="9.2.0" />
-        <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.15" />
+        <PackageReference Include="AWSSDK.CloudWatchLogs" Version="4.0.7.5" />
         <PackageReference Include="AWSSDK.SQS" Version="4.0.2.26" />
         <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.7" />

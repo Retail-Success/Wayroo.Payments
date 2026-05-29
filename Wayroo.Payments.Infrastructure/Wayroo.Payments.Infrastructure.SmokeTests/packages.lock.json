@@ -8,13 +8,13 @@
         "resolved": "9.2.0",
         "contentHash": "RCkuFyKmesmZR74XLOzYvTpG/IbHfBeFapFTMvFskPzEK4z3YrVmHB2FIFJ0DhwjuIDdPL/hc8zS40IwMAN0BA=="
       },
-      "AWSSDK.DynamoDBv2": {
+      "AWSSDK.CloudWatchLogs": {
         "type": "Direct",
-        "requested": "[4.0.15, )",
-        "resolved": "4.0.15",
-        "contentHash": "oF7L2hcbRpzlJnib8HHy6TtyGCJRZuwCGJgAxHJfYdZkWFTY2mV/RgxaZDy45Vq4snje6TXD5MN11wd7m9EGxQ==",
+        "requested": "[4.0.7.5, )",
+        "resolved": "4.0.7.5",
+        "contentHash": "ogPSG+EzIT6DFNZ+sqz8PM3N+iUsc8olYRljk0nCrzeEuVN/0YtY7ob1dWzARnJ/yi+Lumk6vmxlOAn8cDdmrw==",
         "dependencies": {
-          "AWSSDK.Core": "[4.0.3.15, 5.0.0)"
+          "AWSSDK.Core": "[4.0.0.23, 5.0.0)"
         }
       },
       "AWSSDK.SQS": {

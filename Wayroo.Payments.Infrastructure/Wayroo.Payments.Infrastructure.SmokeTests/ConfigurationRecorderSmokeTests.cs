@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Amazon;
-using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.Model;
+using Amazon.CloudWatchLogs;
+using Amazon.CloudWatchLogs.Model;
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using AwesomeAssertions;
@@ -13,13 +13,18 @@ namespace Wayroo.Payments.Infrastructure.SmokeTests;
 
 /// <summary>
 /// Smoke test that exercises the deployed Payments configuration pipeline through its only entry point
-/// (the SQS configuration queue): drop a message on the queue, wait for the recorder lambda to resolve
-/// the store/tenant and write the row, then clean up.
+/// (the SQS configuration queue): drop a message on the queue, then verify via CloudWatch Logs that the
+/// recorder lambda received and processed it without errors.
 /// </summary>
 /// <remarks>
-/// Mirrors <c>Wayroo.ContentLibrary.Infrastructure.SmokeTests</c>. Picks <c>appsettings.{env}.json</c>
-/// from the <c>ENVIRONMENT</c> environment variable (defaults to <c>dev</c>); each environment must
-/// publish a known-good <c>TestPropayAccountNumber</c> that resolves to a real store via the Orders API.
+/// Mirrors <c>Wayroo.Notification.Recorder.Lambda.IntegrationTests.LambdaFunctionTests.CanReceiveEventsAndLog</c>
+/// — verification is log-based rather than data-based so the test only needs <c>logs:FilterLogEvents</c>
+/// (not table scan/get/delete permissions) and doesn't leave residue in the deployed DynamoDB table.
+/// <para>
+/// Each environment must publish a known-good <c>TestPropayAccountNumber</c> that resolves to a real
+/// store via the Orders API, otherwise the lambda will dead-letter and the negative error-log check
+/// will fail.
+/// </para>
 /// <para>
 /// NOTE: this file is currently ProPay-only by accident of being the only gateway live today — the
 /// message body it sends mirrors the MerchantWare/ProPay webhook shape. When a second gateway is added
@@ -31,15 +36,15 @@ namespace Wayroo.Payments.Infrastructure.SmokeTests;
 /// </remarks>
 public class ConfigurationRecorderSmokeTests
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan PollTimeout = TimeSpan.FromSeconds(60);
 
     private readonly ITestOutputHelper _output;
     private readonly string _queueName;
-    private readonly string _tableName;
+    private readonly string _logGroupName;
     private readonly long _testAccountNumber;
     private readonly IAmazonSQS _sqsClient;
-    private readonly IAmazonDynamoDB _dynamoDbClient;
+    private readonly IAmazonCloudWatchLogs _cloudWatchLogsClient;
 
     public ConfigurationRecorderSmokeTests(ITestOutputHelper output)
     {
@@ -55,36 +60,29 @@ public class ConfigurationRecorderSmokeTests
             .Build();
 
         _queueName = config["ConfigurationQueueName"]
-            ?? throw new InvalidOperationException("ConfigurationQueueName is not configured.");
-        _tableName = config["ConfigurationTableName"]
-            ?? throw new InvalidOperationException("ConfigurationTableName is not configured.");
+            ?? throw new System.InvalidOperationException("ConfigurationQueueName is not configured.");
+        _logGroupName = config["RecorderLambdaLogGroupName"]
+            ?? throw new System.InvalidOperationException("RecorderLambdaLogGroupName is not configured.");
 
         var rawAccount = config["TestPropayAccountNumber"];
         if (string.IsNullOrWhiteSpace(rawAccount) || !long.TryParse(rawAccount, out _testAccountNumber) || _testAccountNumber <= 0)
         {
-            throw new InvalidOperationException(
+            throw new System.InvalidOperationException(
                 $"TestPropayAccountNumber must be configured in appsettings.{environment}.json with a known-good ProPay account number that resolves to a real store in the {environment} environment.");
         }
 
         _sqsClient = new AmazonSQSClient(RegionEndpoint.USEast1);
-        _dynamoDbClient = new AmazonDynamoDBClient(RegionEndpoint.USEast1);
+        _cloudWatchLogsClient = new AmazonCloudWatchLogsClient(RegionEndpoint.USEast1);
     }
 
     [Fact]
-    public async Task SendingMessageToConfigurationQueue_PersistsResolvedConfiguration()
+    public async Task SendingMessageToConfigurationQueue_ProducesSuccessfulRecorderLogEntry()
     {
-        // Hard-coded to "propay" to match the handler's default until the upstream EventBridge
-        // integration dispatches the provider. NOTE: this means the smoke test overwrites (and then
-        // deletes) the real (storeId, "propay") row for the configured test account — make sure
-        // TestPropayAccountNumber always points at a designated test account whose propay config you
-        // are OK with the smoke test clobbering.
+        // Hard-coded to "propay" — matches the recorder's parser default until upstream EventBridge
+        // dispatch routes a provider through. The body shape mirrors the real MerchantWare/ProPay
+        // webhook the lambda processes in production.
         const string smokeTestProviderId = "propay";
-        var smokeTestMarker = DateTime.UtcNow.ToString("O");
 
-        // Mirrors the real MerchantWare/ProPay webhook shape so the body we send matches what the lambda
-        // will see in production. Only payload.accountNum drives routing; the whole body is persisted
-        // verbatim as ProviderConfiguration. The marker on merchantName is what we use to recognise this
-        // smoke-test run when we go to verify + clean up.
         var messageBody = JsonSerializer.Serialize(new
         {
             notificationId = Guid.NewGuid().ToString(),
@@ -94,7 +92,7 @@ public class ConfigurationRecorderSmokeTests
             {
                 accountNum = _testAccountNumber,
                 merchantId = "smoke-test",
-                merchantName = $"smoke-test-{smokeTestMarker}",
+                merchantName = "smoke-test",
                 tapToPay = new
                 {
                     terminalId = "smoke-test",
@@ -108,75 +106,76 @@ public class ConfigurationRecorderSmokeTests
         var queueUrl = (await _sqsClient.GetQueueUrlAsync(_queueName)).QueueUrl;
         _output.WriteLine($"Sending smoke test message to {queueUrl} with ProviderId={smokeTestProviderId}");
 
+        // Capture the search window's lower bound BEFORE sending — anything the lambda logs for our
+        // specific MessageId must land within [preInvokeTime, now] and the filter uses that to scope
+        // out unrelated noise from the shared log group.
+        var preInvokeTime = DateTimeOffset.UtcNow;
         var sendResponse = await _sqsClient.SendMessageAsync(new SendMessageRequest
         {
             QueueUrl = queueUrl,
             MessageBody = messageBody,
         });
-        _output.WriteLine($"Sent SQS message {sendResponse.MessageId}; polling {_tableName} for the resulting row...");
+        var sqsMessageId = sendResponse.MessageId;
+        _output.WriteLine($"Sent SQS message {sqsMessageId}; polling {_logGroupName} for a log entry tagged with this MessageId...");
 
-        Dictionary<string, AttributeValue>? persisted = null;
-        try
-        {
-            persisted = await PollForPersistedRowAsync(smokeTestProviderId);
+        // Positive check: at least one structured log entry from the recorder where
+        // Properties.MessageId equals our SQS MessageId. The recorder enriches its logs with the
+        // SQS MessageId on the per-message scope (see Function.cs / PaymentConfigurationMessageHandler).
+        var foundProcessingLog = await PollUntilLogMatchesAsync(
+            filterPattern: $"{{$.Properties.MessageId = \"{sqsMessageId}\"}}",
+            startTime: preInvokeTime);
 
-            persisted.Should().NotBeNull(
-                $"expected a configuration row with ProviderId '{smokeTestProviderId}' to appear in {_tableName} within {PollTimeout.TotalSeconds}s.");
-            persisted!["AccountId"].S.Should().Be(_testAccountNumber.ToString());
-            persisted["ProviderConfiguration"].S.Should().Be(messageBody);
-            persisted["TenantId"].N.Should().NotBeNullOrEmpty();
-            _output.WriteLine($"Row found: StoreId={persisted["StoreId"].N}, TenantId={persisted["TenantId"].N}");
-        }
-        finally
+        foundProcessingLog.Should().BeTrue(
+            $"expected the recorder lambda to log a structured entry tagged with MessageId={sqsMessageId} within {PollTimeout.TotalSeconds}s; if this fails, the lambda likely never received the message (check the source queue → lambda event source mapping and the lambda's VPC/networking).");
+
+        // Negative check: in the same time window, scoped to this MessageId, no Error-level entries.
+        // If the lambda dead-letters (e.g. Orders unreachable, account not found), the recorder logs
+        // an Error template ("Unrecoverable error processing message. Dead-lettering.") which would
+        // match here and flag the test red.
+        var errorRequest = new FilterLogEventsRequest
         {
-            if (persisted is not null)
-            {
-                await _dynamoDbClient.DeleteItemAsync(new DeleteItemRequest
-                {
-                    TableName = _tableName,
-                    Key = new Dictionary<string, AttributeValue>
-                    {
-                        ["StoreId"] = persisted["StoreId"],
-                        ["ProviderId"] = persisted["ProviderId"],
-                    },
-                });
-                _output.WriteLine($"Cleaned up smoke-test row (StoreId={persisted["StoreId"].N}, ProviderId={smokeTestProviderId})");
-            }
+            FilterPattern = $"{{$.Level = \"Error\" && $.Properties.MessageId = \"{sqsMessageId}\"}}",
+            StartTime = preInvokeTime.ToUnixTimeMilliseconds(),
+            EndTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            LogGroupName = _logGroupName,
+            Limit = 5,
+        };
+
+        var errorEvents = (await _cloudWatchLogsClient.FilterLogEventsAsync(errorRequest)).Events ?? [];
+        if (errorEvents.Count > 0)
+        {
+            _output.WriteLine($"Error log events for MessageId={sqsMessageId}: {string.Join(" | ", errorEvents.Select(e => e.Message))}");
         }
+
+        errorEvents.Should().BeEmpty(
+            $"the recorder lambda should not log any Error-level entries while processing MessageId={sqsMessageId}.");
     }
 
-    private async Task<Dictionary<string, AttributeValue>?> PollForPersistedRowAsync(string providerId)
+    private async Task<bool> PollUntilLogMatchesAsync(string filterPattern, DateTimeOffset startTime)
     {
         var deadline = DateTime.UtcNow.Add(PollTimeout);
 
         while (DateTime.UtcNow < deadline)
         {
-            // ProviderId isn't indexed, so scan with a filter. The table is small and the test runs
-            // infrequently, so the read cost is acceptable.
-            var scan = await _dynamoDbClient.ScanAsync(new ScanRequest
+            var request = new FilterLogEventsRequest
             {
-                TableName = _tableName,
-                FilterExpression = "#providerId = :providerId",
-                ExpressionAttributeNames = new Dictionary<string, string>
-                {
-                    ["#providerId"] = "ProviderId",
-                },
-                ExpressionAttributeValues = new Dictionary<string, AttributeValue>
-                {
-                    [":providerId"] = new() { S = providerId },
-                },
-                Limit = 1,
-            });
+                FilterPattern = filterPattern,
+                StartTime = startTime.ToUnixTimeMilliseconds(),
+                EndTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                LogGroupName = _logGroupName,
+                Limit = 5,
+            };
 
-            if (scan.Items is { Count: > 0 })
+            var response = await _cloudWatchLogsClient.FilterLogEventsAsync(request);
+            if (response.Events is { Count: > 0 })
             {
-                return scan.Items[0];
+                return true;
             }
 
-            _output.WriteLine($"Row not present yet, retrying in {PollInterval.TotalSeconds}s...");
+            _output.WriteLine($"No matching log entry yet, retrying in {PollInterval.TotalSeconds}s...");
             await Task.Delay(PollInterval);
         }
 
-        return null;
+        return false;
     }
 }
