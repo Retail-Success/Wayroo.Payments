@@ -31,10 +31,14 @@ internal class PaymentConfigurationTable
             },
             BillingMode = BillingMode.PAY_PER_REQUEST,
             RemovalPolicy = RemovalPolicy.RETAIN,
-            // Records hold live payment credentials (merchant keys, activation codes), so encrypt at rest
-            // with a customer-managed KMS key rather than the default AWS-owned key. Passing no explicit
-            // key makes CDK provision a dedicated CMK for this table (and its stream/PITR backups).
-            Encryption = TableEncryption.CUSTOMER_MANAGED,
+            // TEMP: customer-managed KMS encryption disabled to unblock dev deploy — the deploying
+            // CF role doesn't currently have kms:CreateKey, so provisioning a dedicated CMK was the
+            // step the change set failed on. Without this line DynamoDB falls back to its default
+            // AWS-owned encryption key (no KMS resource provisioned, no extra IAM needed). Records
+            // still hold live payment credentials, so re-enable this with a real CMK once the role
+            // has the needed permissions; remember to restore the kms:Decrypt / kms:GenerateDataKey
+            // entries in the WorkerRole permissions comment over in ConfigurationRecorderLambda.
+            // Encryption = TableEncryption.CUSTOMER_MANAGED,
             PointInTimeRecoverySpecification = new PointInTimeRecoverySpecification
             {
                 PointInTimeRecoveryEnabled = true,
