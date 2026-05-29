@@ -97,9 +97,14 @@ internal class ConfigurationRecorderLambda
         Resource.AddEventSource(new SqsEventSource(Queue, new SqsEventSourceProps
         {
             BatchSize = 5,
-            // The function handles its own failures (ProcessFailureHandler re-queues / dead-letters per
-            // exception type), so partial-batch failure reporting is not used.
-            ReportBatchItemFailures = false
+            // Functionally irrelevant for this recorder — FunctionHandler returns Task (not
+            // Task<SQSBatchResponse>) and never emits batchItemFailures; ProcessFailureHandler does its
+            // own per-message routing (re-queue → source, DLQ → dead-letter). Kept at `true` to match
+            // the value the previous deploy provisioned on this event source mapping — flipping it
+            // forces CloudFormation to call lambda:UpdateEventSourceMapping, which the deploying CF
+            // role currently lacks. Once the role gains that permission, this can be set to false (or
+            // removed) to reflect that we don't actually use partial-batch failure reporting.
+            ReportBatchItemFailures = true
         }));
         Queue.GrantConsumeMessages(Resource);
 
