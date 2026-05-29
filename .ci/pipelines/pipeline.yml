@@ -125,7 +125,11 @@ stages:
           displayName: "Running Smoke Tests against ${{ variables.ENVIRONMENT }} Deployment"
           dependsOn:
             - Deploy_CDK
-          condition: and(succeeded(), eq(variables['HasSmokeTests'], 'true'))
+          condition: >
+            and(
+              in(dependencies.Deploy_CDK.result, 'Succeeded'),
+              eq(variables['HasSmokeTests'], 'true')
+            )
           awsCredentials: ${{ variables.awsCredentialsAccount }}
           region: "$(REGION)"
           artifactName: "${{ variables.SMOKETESTS_ARTIFACT_NAME }}"
@@ -186,7 +190,11 @@ stages:
           displayName: "Running Smoke Tests against ${{ variables.ENVIRONMENT }} Deployment"
           dependsOn:
             - Deploy_CDK
-          condition: and(succeeded(), eq(variables['HasSmokeTests'], 'true'))
+          condition: >
+            and(
+              in(dependencies.Deploy_CDK.result, 'Succeeded'),
+              eq(variables['HasSmokeTests'], 'true')
+            )
           awsCredentials: ${{ variables.awsCredentialsAccount }}
           region: "$(REGION)"
           artifactName: "${{ variables.SMOKETESTS_ARTIFACT_NAME }}"
