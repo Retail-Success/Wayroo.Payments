@@ -20,6 +20,14 @@ namespace Wayroo.Payments.Infrastructure.SmokeTests;
 /// Mirrors <c>Wayroo.ContentLibrary.Infrastructure.SmokeTests</c>. Picks <c>appsettings.{env}.json</c>
 /// from the <c>ENVIRONMENT</c> environment variable (defaults to <c>dev</c>); each environment must
 /// publish a known-good <c>TestPropayAccountNumber</c> that resolves to a real store via the Orders API.
+/// <para>
+/// NOTE: this file is currently ProPay-only by accident of being the only gateway live today — the
+/// message body it sends mirrors the MerchantWare/ProPay webhook shape. When a second gateway is added
+/// (see <c>Gateways/{Provider}/</c> in the recorder lambda for where the per-provider classes live),
+/// split this file into per-provider smoke tests (e.g. <c>Propay/ConfigurationRecorderSmokeTests.cs</c>
+/// alongside <c>Stripe/…</c>) so the "smoke test = ProPay" assumption doesn't get baked into the project
+/// structure permanently.
+/// </para>
 /// </remarks>
 public class ConfigurationRecorderSmokeTests
 {
@@ -71,16 +79,29 @@ public class ConfigurationRecorderSmokeTests
         // TestPropayAccountNumber always points at a designated test account whose propay config you
         // are OK with the smoke test clobbering.
         const string smokeTestProviderId = "propay";
-        var smokeTestPayload = $"{{\"smokeTest\":\"{DateTime.UtcNow:O}\"}}";
+        var smokeTestMarker = DateTime.UtcNow.ToString("O");
 
-        // Mirrors the provider-webhook shape the lambda reads: only payload.accountNum is used for the
-        // lookup; the whole body is persisted verbatim as ProviderConfiguration.
+        // Mirrors the real MerchantWare/ProPay webhook shape so the body we send matches what the lambda
+        // will see in production. Only payload.accountNum drives routing; the whole body is persisted
+        // verbatim as ProviderConfiguration. The marker on merchantName is what we use to recognise this
+        // smoke-test run when we go to verify + clean up.
         var messageBody = JsonSerializer.Serialize(new
         {
+            notificationId = Guid.NewGuid().ToString(),
+            eventType = "merchantware.credentials.created",
+            eventDateTimeUTC = DateTime.UtcNow.ToString("MM/dd/yyyy HH:mm:ss"),
             payload = new
             {
                 accountNum = _testAccountNumber,
-                ProviderConfiguration = smokeTestPayload,
+                merchantId = "smoke-test",
+                merchantName = $"smoke-test-{smokeTestMarker}",
+                tapToPay = new
+                {
+                    terminalId = "smoke-test",
+                    activationCode = "smoke-test",
+                    merchantSiteId = "smoke-test",
+                    merchantKey = "smoke-test",
+                },
             },
         });
 

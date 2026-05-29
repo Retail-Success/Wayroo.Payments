@@ -1,11 +1,10 @@
 using Amazon.Lambda.Core;
 using Amazon.Lambda.SQSEvents;
-using Amazon.SQS;
-using Luci.Orders.SDK;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Wayroo.Payments.ConfigurationRecorder.Lambda.Gateways.Propay;
 using Wayroo.Payments.DataAccess.Extensions;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
@@ -85,24 +84,19 @@ public class Function
 
         ValidateRequiredEnvironmentVariables(configuration);
 
+        // Read top-to-bottom as the manifest of what this lambda is wired up with. Each gateway is one
+        // line; add a second gateway by sliding in its sibling Add{Provider}Gateway() below.
+        //
+        // NOTE on multi-gateway: with a single gateway today the handler resolves the one
+        // IPaymentConfigurationParser / IStoreOwnerResolver pair straight out of DI. When the upstream
+        // webhook envelope starts carrying a provider identifier (the gateway is expected to dispatch
+        // with it), introduce a small IPaymentGatewayDispatcher that selects the right pair per
+        // message and have PaymentConfigurationMessageHandler ask the dispatcher instead of injecting
+        // the pair directly. The Add{Provider}Gateway() pattern below is the same either way.
         services.AddLogging(lb => lb.AddSerilog(Log.Logger));
-
-        // DynamoDB persistence.
         services.AddPaymentsDataAccess(configuration);
-
-        // Orders API client — resolves store/tenant from a ProPay account number.
-        services.AddOrdersClient(options => options.ApiBaseUrl = configuration[EnvironmentVariableKeys.OrdersApiBaseUrl]!);
-
-        // SQS + failure routing (re-queue transient, dead-letter the rest).
-        services.AddSingleton<IAmazonSQS>(_ => new AmazonSQSClient(
-            Amazon.RegionEndpoint.GetBySystemName(configuration[EnvironmentVariableKeys.AwsRegion] ?? "us-east-1")));
-        services.AddSingleton(provider => new ProcessFailureHandler(
-            provider.GetRequiredService<ILogger<ProcessFailureHandler>>(),
-            provider.GetRequiredService<IAmazonSQS>(),
-            configuration[EnvironmentVariableKeys.DeadLetterQueueUrl]!,
-            configuration[EnvironmentVariableKeys.SourceQueueUrl]!));
-
-        services.AddSingleton<IMessageHandler, PaymentConfigurationMessageHandler>();
+        services.AddPaymentConfigurationRecorder(configuration);
+        services.AddPropayGateway(configuration);
 
         return services.BuildServiceProvider();
     }
