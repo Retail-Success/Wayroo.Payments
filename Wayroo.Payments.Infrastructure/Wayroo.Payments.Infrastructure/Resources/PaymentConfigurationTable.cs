@@ -8,6 +8,7 @@ namespace Wayroo.Payments.Infrastructure.Resources;
 /// <summary>
 /// The DynamoDB table storing payment provider configurations recorded by the processor lambda.
 /// Mirrors the table conventions in Wayroo.ContentLibrary.Infrastructure (DSOContentTable).
+/// Partitioned by store and sorted by provider.
 /// </summary>
 internal class PaymentConfigurationTable
 {
@@ -20,16 +21,20 @@ internal class PaymentConfigurationTable
             TableName = $"{environment}-{tableName}",
             PartitionKey = new Amazon.CDK.AWS.DynamoDB.Attribute
             {
-                Name = PaymentConfigurationSchemaProvider.AttributeNameForPartitionKey, // "TenantId"
-                Type = AttributeType.STRING,
+                Name = PaymentConfigurationSchemaProvider.AttributeNameForPartitionKey, // "StoreId"
+                Type = AttributeType.NUMBER,
             },
             SortKey = new Amazon.CDK.AWS.DynamoDB.Attribute
             {
-                Name = PaymentConfigurationSchemaProvider.AttributeNameForSortKey, // "Provider"
+                Name = PaymentConfigurationSchemaProvider.AttributeNameForSortKey, // "ProviderId"
                 Type = AttributeType.STRING,
             },
             BillingMode = BillingMode.PAY_PER_REQUEST,
             RemovalPolicy = RemovalPolicy.RETAIN,
+            // Records hold live payment credentials (merchant keys, activation codes), so encrypt at rest
+            // with a customer-managed KMS key rather than the default AWS-owned key. Passing no explicit
+            // key makes CDK provision a dedicated CMK for this table (and its stream/PITR backups).
+            Encryption = TableEncryption.CUSTOMER_MANAGED,
             PointInTimeRecoverySpecification = new PointInTimeRecoverySpecification
             {
                 PointInTimeRecoveryEnabled = true,

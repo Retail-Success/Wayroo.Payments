@@ -11,37 +11,48 @@ namespace Wayroo.Payments.DataAccess;
 /// </summary>
 public static class PaymentConfigurationSchemaProvider
 {
-    /// <summary>The table's partition key is the TenantId attribute.</summary>
-    public static string AttributeNameForPartitionKey => nameof(PaymentProviderConfiguration.TenantId);
+    /// <summary>The table's partition key is the StoreId attribute (a number).</summary>
+    public static string AttributeNameForPartitionKey => nameof(PaymentProviderConfiguration.StoreId);
 
-    /// <summary>The table's sort key is the Provider attribute.</summary>
-    public static string AttributeNameForSortKey => nameof(PaymentProviderConfiguration.Provider);
+    /// <summary>The table's sort key is the ProviderId attribute.</summary>
+    public static string AttributeNameForSortKey => nameof(PaymentProviderConfiguration.ProviderId);
 
     /// <summary>
     /// Builds the PK + SK key dictionary used to identify a single configuration record.
     /// </summary>
-    public static Dictionary<string, AttributeValue> GetRecordIdentifiers(string tenantId, string provider)
+    public static Dictionary<string, AttributeValue> GetRecordIdentifiers(long storeId, string providerId)
         => new()
         {
-            { AttributeNameForPartitionKey, tenantId.ToAttributeValue() },
-            { AttributeNameForSortKey, provider.ToAttributeValue() },
+            { AttributeNameForPartitionKey, storeId.ToAttributeValue() },
+            { AttributeNameForSortKey, providerId.ToAttributeValue() },
         };
+
+    /// <summary>
+    /// Builds the partition-key-only condition value used to query every record for a store.
+    /// </summary>
+    public static AttributeValue GetPartitionKeyValue(long storeId) => storeId.ToAttributeValue();
 
     /// <summary>
     /// Converts a configuration into its full DynamoDB attribute representation.
     /// </summary>
     public static Dictionary<string, AttributeValue> GetRecord(PaymentProviderConfiguration configuration)
     {
-        if (string.IsNullOrWhiteSpace(configuration.TenantId))
-            throw new ArgumentException("TenantId is required on the configuration.", nameof(configuration));
+        if (configuration.StoreId <= 0)
+            throw new ArgumentException("StoreId is required on the configuration.", nameof(configuration));
 
-        if (string.IsNullOrWhiteSpace(configuration.Provider))
-            throw new ArgumentException("Provider is required on the configuration.", nameof(configuration));
+        if (string.IsNullOrWhiteSpace(configuration.ProviderId))
+            throw new ArgumentException("ProviderId is required on the configuration.", nameof(configuration));
 
-        var record = GetRecordIdentifiers(configuration.TenantId, configuration.Provider);
-        record[nameof(PaymentProviderConfiguration.RawPayload)] = configuration.RawPayload.ToAttributeValue();
-        record[nameof(PaymentProviderConfiguration.ReceivedTimestamp)] = configuration.ReceivedTimestamp.ToAttributeValue();
-        record[nameof(PaymentProviderConfiguration.LastModifiedTimestamp)] = configuration.LastModifiedTimestamp.ToAttributeValue();
+        var record = GetRecordIdentifiers(configuration.StoreId, configuration.ProviderId);
+
+        // AccountId is an optional attribute; omit it entirely when absent rather than storing a NULL.
+        if (!string.IsNullOrWhiteSpace(configuration.AccountId))
+            record[nameof(PaymentProviderConfiguration.AccountId)] = configuration.AccountId.ToAttributeValue();
+
+        record[nameof(PaymentProviderConfiguration.TenantId)] = configuration.TenantId.ToAttributeValue();
+        record[nameof(PaymentProviderConfiguration.ProviderConfiguration)] = configuration.ProviderConfiguration.ToAttributeValue();
+        record[nameof(PaymentProviderConfiguration.CreatedOn)] = configuration.CreatedOn.ToAttributeValue();
+        record[nameof(PaymentProviderConfiguration.ModifiedOn)] = configuration.ModifiedOn.ToAttributeValue();
         return record;
     }
 
@@ -51,10 +62,12 @@ public static class PaymentConfigurationSchemaProvider
     public static PaymentProviderConfiguration GetModel(Dictionary<string, AttributeValue> attributes)
         => new()
         {
-            TenantId = attributes.GetString(AttributeNameForPartitionKey) ?? string.Empty,
-            Provider = attributes.GetString(AttributeNameForSortKey) ?? string.Empty,
-            RawPayload = attributes.GetString(nameof(PaymentProviderConfiguration.RawPayload)),
-            ReceivedTimestamp = attributes.GetDateTimeOffset(nameof(PaymentProviderConfiguration.ReceivedTimestamp)),
-            LastModifiedTimestamp = attributes.GetDateTimeOffset(nameof(PaymentProviderConfiguration.LastModifiedTimestamp)),
+            StoreId = attributes.GetLong(AttributeNameForPartitionKey) ?? 0,
+            ProviderId = attributes.GetString(AttributeNameForSortKey) ?? string.Empty,
+            AccountId = attributes.GetString(nameof(PaymentProviderConfiguration.AccountId)),
+            TenantId = attributes.GetLong(nameof(PaymentProviderConfiguration.TenantId)),
+            ProviderConfiguration = attributes.GetString(nameof(PaymentProviderConfiguration.ProviderConfiguration)),
+            CreatedOn = attributes.GetDateTimeOffset(nameof(PaymentProviderConfiguration.CreatedOn)),
+            ModifiedOn = attributes.GetDateTimeOffset(nameof(PaymentProviderConfiguration.ModifiedOn)),
         };
 }

@@ -1,0 +1,225 @@
+{
+  "ModelName": "untitled-1",
+  "ModelMetadata": {
+    "Author": "",
+    "DateCreated": "May 27, 2026, 03:15 PM",
+    "DateLastModified": "May 27, 2026, 03:36 PM",
+    "Description": "",
+    "AWSService": "Amazon DynamoDB",
+    "Version": "3.0",
+    "Project": "drafts"
+  },
+  "DataModel": [
+    {
+      "TableName": "PaymentConfigurations",
+      "KeyAttributes": {
+        "PartitionKey": {
+          "AttributeName": "StoreId",
+          "AttributeType": "N"
+        },
+        "SortKey": {
+          "AttributeName": "ProviderId",
+          "AttributeType": "S"
+        }
+      },
+      "NonKeyAttributes": [
+        {
+          "AttributeName": "ProviderConfiguration",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "AccountId",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "TenantId",
+          "AttributeType": "N"
+        },
+        {
+          "AttributeName": "CreatedOn",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "ModifiedOn",
+          "AttributeType": "S"
+        }
+      ],
+      "TableData": [
+        {
+          "StoreId": {
+            "N": "21614"
+          },
+          "ProviderId": {
+            "S": "propay"
+          },
+          "ProviderConfiguration": {
+            "S": "{\"foo\":\"tV}FMd)^x_\",\"bar\":1655761344135168,\"bike\":\",:GjiNtC2i\",\"a\":6219309533626368,\"b\":\";[M$Ju<wU8\",\"name\":4718060709609472,\"prop\":\"x`o;1Ya@$-\"}"
+          },
+          "AccountId": {
+            "S": "8045184604438528"
+          },
+          "TenantId": {
+            "N": "6362822162251776"
+          },
+          "CreatedOn": {
+            "S": "2026-11-16T22:44:44.347Z"
+          },
+          "ModifiedOn": {
+            "S": "2025-08-09T02:26:27.256Z"
+          }
+        },
+        {
+          "StoreId": {
+            "N": "21614"
+          },
+          "ProviderId": {
+            "S": "paypal"
+          },
+          "ProviderConfiguration": {
+            "S": "{\"foo\":\"M!Q!/Fp-:d\",\"bar\":\"KlP}b26-'L\",\"bike\":\"na5JaQ$X{j\",\"a\":4407333725667328,\"b\":4130765101072384,\"name\":\"#LTT`s@J;8\",\"prop\":7504978377703424}"
+          },
+          "AccountId": {
+            "S": "1566706967248896"
+          },
+          "TenantId": {
+            "N": "7065874877906944"
+          },
+          "CreatedOn": {
+            "S": "2026-12-20T07:28:10.156Z"
+          },
+          "ModifiedOn": {
+            "S": "2025-08-27T00:42:00.080Z"
+          }
+        },
+        {
+          "StoreId": {
+            "N": "50327"
+          },
+          "ProviderId": {
+            "S": "propay"
+          },
+          "ProviderConfiguration": {
+            "S": "{\"foo\":\"d[0</.bgsP\",\"bar\":\"?TF&\\\\q0Ryh\",\"bike\":591061913174016,\"a\":424095409766400,\"b\":\"%l[E9t)D?l\",\"name\":636019403653120,\"prop\":668707923689472}"
+          },
+          "AccountId": {
+            "S": "111230836539392"
+          },
+          "TenantId": {
+            "N": "7701665004126208"
+          },
+          "CreatedOn": {
+            "S": "2025-10-27T01:20:57.368Z"
+          },
+          "ModifiedOn": {
+            "S": "2026-01-31T21:53:28.008Z"
+          }
+        },
+        {
+          "StoreId": {
+            "N": "81979"
+          },
+          "ProviderId": {
+            "S": "propay"
+          },
+          "ProviderConfiguration": {
+            "S": "{\"foo\":\"^thM>\\\\0c\\\"&\",\"bar\":\"vj6&u6Jx+3\",\"bike\":\"_!!x3Q9]W!\",\"a\":\"c@A+8on|CC\",\"b\":\"'VPh*S)06s\",\"name\":\"WwfQvkD3uv\",\"prop\":6398899621199872}"
+          },
+          "AccountId": {
+            "S": "2586346013065216"
+          },
+          "TenantId": {
+            "N": "176752737386496"
+          },
+          "CreatedOn": {
+            "S": "2027-04-22T07:54:59.264Z"
+          },
+          "ModifiedOn": {
+            "S": "2025-07-29T02:25:12.204Z"
+          }
+        },
+        {
+          "StoreId": {
+            "N": "89637"
+          },
+          "ProviderId": {
+            "S": "paypal"
+          },
+          "ProviderConfiguration": {
+            "S": "{\"foo\":3737710751645696,\"bar\":\"0r|$bKQYLw\",\"bike\":\"M<KnIxwz+@\",\"a\":\"yOQwpYq152\",\"b\":\"sY`ALi3\\\"=a\",\"name\":\"fw5DoC+Rj$\",\"prop\":7426060933136384}"
+          },
+          "AccountId": {
+            "S": "3342492109897728"
+          },
+          "TenantId": {
+            "N": "50797414973440"
+          },
+          "CreatedOn": {
+            "S": "2027-01-25T11:46:21.134Z"
+          },
+          "ModifiedOn": {
+            "S": "2027-04-26T21:43:59.978Z"
+          }
+        }
+      ],
+      "DataAccess": {
+        "MySql": {}
+      },
+      "SampleDataFormats": {
+        "storeId": [
+          "Int"
+        ],
+        "CreatedOn": [
+          "date",
+          "ISO 8601 date and time"
+        ],
+        "ModifiedOn": [
+          "date",
+          "ISO 8601 date and time"
+        ],
+        "ProviderConfiguration": [
+          "dataTypes",
+          "JSON"
+        ],
+        "AccountId": [
+          "dataTypes",
+          "Int"
+        ],
+        "TenantId": [
+          "Int"
+        ],
+        "StoreId": [
+          "Int"
+        ],
+        "ProviderId": [
+          "dataTypes",
+          "String"
+        ]
+      },
+      "BillingMode": "PAY_PER_REQUEST",
+      "DateLastModified": "May 27, 2026, 03:36 PM"
+    }
+  ],
+  "AccessPatterns": [
+    {
+      "Name": "UpsertConfiguration",
+      "Type": "PutItem",
+      "Description": "PK (StoreId) and SK (ProviderId)",
+      "TableName": "PaymentConfigurations",
+      "DateLastModified": "May 27, 2026, 03:28 PM"
+    },
+    {
+      "Name": "GetStoreProviderConfiguration",
+      "Type": "GetItem",
+      "Description": "PK for StoreId and SK for ProviderId",
+      "TableName": "PaymentConfigurations",
+      "DateLastModified": "May 27, 2026, 03:28 PM"
+    },
+    {
+      "Name": "GetAllStoreConfigurations",
+      "Type": "Query",
+      "Description": "PK only for StoreId",
+      "TableName": "PaymentConfigurations",
+      "DateLastModified": "May 27, 2026, 03:27 PM"
+    }
+  ]
+}

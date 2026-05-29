@@ -27,9 +27,8 @@ internal class ConfigurationRecorderLambda
         IBucket artifactsBucket,
         string functionVersion,
         ITopic alarmTopic,
-        // TEMP: optional while configuration recording is unplugged. When the DynamoDB table is
-        // re-enabled in ResourceStack it will be supplied and the table env vars below will be set.
-        PaymentConfigurationTable? configurationTable = null)
+        PaymentConfigurationTable configurationTable,
+        string ordersApiBaseUrl)
     {
         var functionName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}";
 
@@ -81,13 +80,14 @@ internal class ConfigurationRecorderLambda
                 lambdaSourceObjectKey),
             MemorySize = 512,
             Timeout = Duration.Seconds(lambdaTimeoutSeconds),
-            Environment = configurationTable is null
-                ? new Dictionary<string, string>()
-                : new Dictionary<string, string>
-                {
-                    [EnvironmentVariableKeys.PaymentConfigurationTableName] = configurationTable.Resource.TableName,
-                    [EnvironmentVariableKeys.AwsRegion] = "us-east-1",
-                },
+            Environment = new Dictionary<string, string>
+            {
+                [EnvironmentVariableKeys.PaymentConfigurationTableName] = configurationTable.Resource.TableName,
+                [EnvironmentVariableKeys.AwsRegion] = "us-east-1",
+                [EnvironmentVariableKeys.OrdersApiBaseUrl] = ordersApiBaseUrl,
+                [EnvironmentVariableKeys.SourceQueueUrl] = Queue.QueueUrl,
+                [EnvironmentVariableKeys.DeadLetterQueueUrl] = deadLetterQueue.QueueUrl,
+            },
             LogGroup = Logs,
             // While CDK can auto-create a role and policy aligning with the needs of this resource and the resources it's been configured to interact with,
             // to reduce the risks of having CloudFormation and deployments manage permissions, assume the role already exists with the necessary permissions.
@@ -97,9 +97,18 @@ internal class ConfigurationRecorderLambda
         Resource.AddEventSource(new SqsEventSource(Queue, new SqsEventSourceProps
         {
             BatchSize = 5,
-            ReportBatchItemFailures = true
+            // The function handles its own failures (ProcessFailureHandler re-queues / dead-letters per
+            // exception type), so partial-batch failure reporting is not used.
+            ReportBatchItemFailures = false
         }));
         Queue.GrantConsumeMessages(Resource);
+
+        // The execution role is imported as immutable (see lambdaExecutionRole above), so CDK cannot
+        // attach policies here — they must be present on the external "{env}/WorkerRole":
+        //   - dynamodb:PutItem, GetItem, Query on the table
+        //   - kms:Decrypt, kms:GenerateDataKey on the table's customer-managed key (writes use the CMK)
+        //   - sqs:SendMessage on this queue (re-queue to retry) and its dead-letter queue
+        //   - outbound network access to the Orders API (resolving store/tenant from the account number)
 
         ConfigureAlarms(
             scope,

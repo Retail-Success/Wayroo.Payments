@@ -1,16 +1,23 @@
+using System.Globalization;
 using Amazon.DynamoDBv2.Model;
 
 namespace Wayroo.Payments.DataAccess.Extensions;
 
 /// <summary>
 /// Minimal helpers for converting between CLR values and DynamoDB <see cref="AttributeValue"/>s.
-/// The payment configuration schema only uses strings and timestamps; this mirrors (in trimmed
+/// The payment configuration schema uses strings, numbers and timestamps; this mirrors (in trimmed
 /// form) the richer converters in Wayroo.ContentLibrary.DataAccess.
 /// </summary>
 public static class Converters
 {
     public static AttributeValue ToAttributeValue(this string? value)
         => value is null ? new AttributeValue { NULL = true } : new AttributeValue { S = value };
+
+    public static AttributeValue ToAttributeValue(this long value)
+        => new() { N = value.ToString(CultureInfo.InvariantCulture) };
+
+    public static AttributeValue ToAttributeValue(this long? value)
+        => value is null ? new AttributeValue { NULL = true } : value.Value.ToAttributeValue();
 
     public static AttributeValue ToAttributeValue(this DateTimeOffset value)
         // Store as a round-trippable ISO 8601 string.
@@ -21,6 +28,12 @@ public static class Converters
 
     public static string? GetString(this Dictionary<string, AttributeValue> attributes, string attributeName)
         => attributes.TryGetValue(attributeName, out var attribute) ? attribute.S : null;
+
+    public static long? GetLong(this Dictionary<string, AttributeValue> attributes, string attributeName)
+        => attributes.TryGetValue(attributeName, out var attribute)
+           && long.TryParse(attribute.N, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
 
     public static DateTimeOffset? GetDateTimeOffset(this Dictionary<string, AttributeValue> attributes, string attributeName)
         => attributes.TryGetValue(attributeName, out var attribute) && DateTimeOffset.TryParse(attribute.S, out var value)

@@ -6,12 +6,18 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Wayroo.Payments.ConfigurationRecorder.Lambda</RootNamespace>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Transitive advisories from the Orders SDK (Refit, IdentityModel) — out of our control until the
+         SDK updates them. Mirrors the suppression used elsewhere (e.g. ContentLibrary CollageProcessor). -->
+    <NoWarn>$(NoWarn);NU1901;NU1902;NU1903;NU1904</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Amazon.Lambda.Core" Version="2.8.1" />
     <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="2.4.5" />
     <PackageReference Include="Amazon.Lambda.SQSEvents" Version="2.2.1" />
+    <PackageReference Include="AWSSDK.SQS" Version="4.0.2.26" />
+    <PackageReference Include="Luci.Orders.SDK" Version="8.0.242" />
+    <PackageReference Include="Wayroo.Common" Version="1.8.21" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
