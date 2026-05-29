@@ -27,8 +27,7 @@ internal class ConfigurationRecorderLambda
         IBucket artifactsBucket,
         string functionVersion,
         ITopic alarmTopic,
-        PaymentConfigurationTable configurationTable,
-        string ordersApiBaseUrl)
+        PaymentConfigurationTable configurationTable)
     {
         var functionName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}";
 
@@ -84,9 +83,10 @@ internal class ConfigurationRecorderLambda
             {
                 [EnvironmentVariableKeys.PaymentConfigurationTableName] = configurationTable.Resource.TableName,
                 [EnvironmentVariableKeys.AwsRegion] = "us-east-1",
-                [EnvironmentVariableKeys.OrdersApiBaseUrl] = ordersApiBaseUrl,
                 [EnvironmentVariableKeys.SourceQueueUrl] = Queue.QueueUrl,
                 [EnvironmentVariableKeys.DeadLetterQueueUrl] = deadLetterQueue.QueueUrl,
+                // The Orders API base URL is loaded by the lambda at runtime from SSM Parameter Store
+                // at /luci/services/utility/OrdersClientOptions/ApiBaseUrl — not from an env var.
             },
             LogGroup = Logs,
             // While CDK can auto-create a role and policy aligning with the needs of this resource and the resources it's been configured to interact with,
@@ -108,6 +108,9 @@ internal class ConfigurationRecorderLambda
         //   - dynamodb:PutItem, GetItem, Query on the table
         //   - kms:Decrypt, kms:GenerateDataKey on the table's customer-managed key (writes use the CMK)
         //   - sqs:SendMessage on this queue (re-queue to retry) and its dead-letter queue
+        //   - ssm:GetParametersByPath on "/luci/services/utility/OrdersClientOptions/*" — the lambda
+        //     loads the Orders API base URL from SSM at
+        //     /luci/services/utility/OrdersClientOptions/ApiBaseUrl on cold start
         //   - outbound network access to the Orders API (resolving store/tenant from the account number)
 
         ConfigureAlarms(

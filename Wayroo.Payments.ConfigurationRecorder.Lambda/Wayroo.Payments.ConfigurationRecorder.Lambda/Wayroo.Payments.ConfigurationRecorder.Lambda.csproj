@@ -14,6 +14,7 @@
   <ItemGroup>
     <PackageReference Include="Amazon.Lambda.Core" Version="2.8.1" />
     <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="2.4.5" />
+    <PackageReference Include="Amazon.Extensions.Configuration.SystemsManager" Version="7.1.0" />
     <PackageReference Include="Amazon.Lambda.SQSEvents" Version="2.2.1" />
     <PackageReference Include="AWSSDK.SQS" Version="4.0.2.26" />
     <PackageReference Include="Luci.Orders.SDK" Version="8.0.242" />
