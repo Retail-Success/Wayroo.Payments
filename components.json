@@ -3,18 +3,44 @@
     "path": "Wayroo.Payments.Models/Wayroo.Payments.Models"
   },
   "Wayroo.Payments.DataAccess": {
-    "path": "Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess"
+    "path": "Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess",
+    "tests": {
+      "Wayroo.Payments.DataAccess.UnitTests": {
+        "path": "Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.UnitTests",
+        "type": "unit-tests"
+      },
+      "Wayroo.Payments.DataAccess.IntegrationTests": {
+        "path": "Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.IntegrationTests",
+        "type": "integration-tests"
+      }
+    }
   },
   "Wayroo.Payments.Infrastructure": {
     "path": "Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure",
     "artifactName": "Wayroo.Payments.Infrastructure",
-    "type": "infrastructure"
+    "type": "infrastructure",
+    "tests": {
+      "Wayroo.Payments.Infrastructure.SmokeTests": {
+        "path": "Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure.SmokeTests",
+        "type": "smoke-tests"
+      }
+    }
   },
   "Wayroo.Payments.ConfigurationRecorder.Lambda": {
     "path": "Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda",
     "artifactName": "wayroo-payments-configurationrecorder",
     "serviceName": "WayrooPayments",
     "componentName": "ConfigurationRecorderLambda",
-    "type": "lambda"
+    "type": "lambda",
+    "tests": {
+      "Wayroo.Payments.ConfigurationRecorder.Lambda.UnitTests": {
+        "path": "Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.UnitTests",
+        "type": "unit-tests"
+      },
+      "Wayroo.Payments.ConfigurationRecorder.Lambda.IntegrationTests": {
+        "path": "Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.IntegrationTests",
+        "type": "integration-tests"
+      }
+    }
   }
 }

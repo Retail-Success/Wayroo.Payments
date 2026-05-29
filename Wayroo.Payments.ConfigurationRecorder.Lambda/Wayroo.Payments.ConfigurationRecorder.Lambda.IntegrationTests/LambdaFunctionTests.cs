@@ -19,8 +19,11 @@ public class LambdaFunctionTests(TestFixture fixture)
     [Fact]
     public void CanCreateFunction()
     {
-        // Given configuration values for the environment have been set
-        foreach (var key in EnvironmentVariableKeys.Keys())
+        // Given configuration values for the environment have been set. Iterate both env-var keys AND
+        // SSM-backed parameter store keys (Function validates both); the env-var provider surfaces the
+        // SSM keys at the same config key, so the SSM source — which is Optional = true — can be skipped
+        // when SSM isn't reachable (as it isn't in build-time test runs).
+        foreach (var key in EnvironmentVariableKeys.Keys().Concat(ParameterStoreKeys.Keys()))
         {
             var mockValue = $"some-{key}-value";
 
