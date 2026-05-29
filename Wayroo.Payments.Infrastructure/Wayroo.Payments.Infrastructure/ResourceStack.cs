@@ -52,8 +52,7 @@ internal class ResourceStack : Stack
                 artifactsBucket: artifactsBucket,
                 functionVersion: config.LambdaArtifactVersion,
                 alarmTopic: alarmTopic,
-                configurationTable: configurationTable,
-                ordersApiBaseUrl: config.OrdersApiBaseUrl)
+                configurationTable: configurationTable)
         };
     }
 
@@ -107,17 +106,9 @@ internal class ResourceStack : Stack
             }
         ).ValueAsString;
 
-        var ordersApiBaseUrl = new CfnParameter(
-            this,
-            id: "OrdersApiBaseUrl",
-            new CfnParameterProps
-            {
-                Type = "String",
-                Description =
-                    "The absolute base URL of the Orders API used to resolve store/tenant from a ProPay account.",
-                MinLength = 1, // force this to be supplied
-            }
-        ).ValueAsString;
+        // NOTE: the Orders API URL is not a CFN parameter — the lambda loads it at runtime from SSM
+        // Parameter Store at /luci/services/utility/OrdersClientOptions/ApiBaseUrl. Each environment's
+        // value lives in SSM and the deploy pipeline doesn't need to plumb it through.
 
         return new StackConfig
         {
@@ -125,7 +116,6 @@ internal class ResourceStack : Stack
             AlarmTopicArn = alarmTopicArn,
             ArtifactsBucketArn = artifactsBucketArn,
             LambdaArtifactVersion = lambdaArtifactVersion,
-            OrdersApiBaseUrl = ordersApiBaseUrl,
         };
     }
 }

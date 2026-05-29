@@ -10,16 +10,14 @@ public static class EnvironmentVariableKeys
     /// <summary>AWS region the DynamoDB and SQS clients target.</summary>
     public static readonly string AwsRegion = nameof(AwsRegion);
 
-    /// <summary>Absolute base URL of the Orders API, used to resolve store/tenant from a ProPay account.</summary>
-    public static readonly string OrdersApiBaseUrl = nameof(OrdersApiBaseUrl);
-
     /// <summary>URL of the queue this lambda consumes; messages are re-queued here to retry transient failures.</summary>
     public static readonly string SourceQueueUrl = nameof(SourceQueueUrl);
 
     /// <summary>URL of the dead-letter queue unrecoverable messages are routed to.</summary>
     public static readonly string DeadLetterQueueUrl = nameof(DeadLetterQueueUrl);
 
-    // Every key declared here is validated on startup by Function.ValidateRequiredEnvironmentVariables.
+    // Every key declared here is validated on startup by Function.ValidateRequiredConfiguration
+    // alongside ParameterStoreKeys.Keys().
 
     public static IEnumerable<string> Keys()
     {

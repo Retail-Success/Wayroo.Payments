@@ -18,7 +18,7 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddOrdersClient(options =>
-            options.ApiBaseUrl = configuration[EnvironmentVariableKeys.OrdersApiBaseUrl]!);
+            options.ApiBaseUrl = configuration[ParameterStoreKeys.OrdersApiBaseUrl]!);
         services.AddSingleton<IPaymentConfigurationParser, PropayConfigurationParser>();
         services.AddSingleton<IStoreOwnerResolver, PropayStoreOwnerResolver>();
         return services;

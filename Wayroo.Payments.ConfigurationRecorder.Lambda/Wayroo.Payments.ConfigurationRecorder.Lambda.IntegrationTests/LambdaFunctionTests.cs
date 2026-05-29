@@ -130,7 +130,9 @@ public class LambdaFunctionTests(TestFixture fixture)
     {
         Environment.SetEnvironmentVariable(EnvironmentVariableKeys.PaymentConfigurationTableName, tableName);
         Environment.SetEnvironmentVariable(EnvironmentVariableKeys.AwsRegion, "us-east-1");
-        Environment.SetEnvironmentVariable(EnvironmentVariableKeys.OrdersApiBaseUrl, fixture.OrdersApiBaseUrl);
+        // The Orders URL is normally loaded from SSM; the env-var provider surfaces it at the same
+        // config key (the SSM source is Optional, so it's skipped when SSM isn't reachable).
+        Environment.SetEnvironmentVariable(ParameterStoreKeys.OrdersApiBaseUrl, fixture.OrdersApiBaseUrl);
         Environment.SetEnvironmentVariable(EnvironmentVariableKeys.SourceQueueUrl, "https://sqs.local/source");
         Environment.SetEnvironmentVariable(EnvironmentVariableKeys.DeadLetterQueueUrl, "https://sqs.local/dlq");
 

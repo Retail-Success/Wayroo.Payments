@@ -80,9 +80,22 @@ public class Function
 
         var configuration = new ConfigurationBuilder()
             .AddEnvironmentVariables()
+            .AddSystemsManager(options =>
+            {
+                // Scoped to just the Orders client options the lambda actually uses. The provider
+                // strips this whole prefix, so the SSM parameter
+                //   /luci/services/utility/OrdersClientOptions/ApiBaseUrl
+                // surfaces at config key
+                //   ApiBaseUrl
+                // (see ParameterStoreKeys). Loaded after env vars so tests can override; Optional = true
+                // lets the build succeed when SSM isn't reachable (local component/integration tests).
+                options.Path = "/luci/services/utility/OrdersClientOptions/";
+                options.ReloadAfter = TimeSpan.FromMinutes(5);
+                options.Optional = true;
+            })
             .Build();
 
-        ValidateRequiredEnvironmentVariables(configuration);
+        ValidateRequiredConfiguration(configuration);
 
         // Read top-to-bottom as the manifest of what this lambda is wired up with. Each gateway is one
         // line; add a second gateway by sliding in its sibling Add{Provider}Gateway() below.
@@ -101,14 +114,15 @@ public class Function
         return services.BuildServiceProvider();
     }
 
-    private static void ValidateRequiredEnvironmentVariables(IConfiguration configuration)
+    private static void ValidateRequiredConfiguration(IConfiguration configuration)
     {
         var missing = EnvironmentVariableKeys.Keys()
+            .Concat(ParameterStoreKeys.Keys())
             .Where(key => string.IsNullOrWhiteSpace(configuration[key]))
             .ToArray();
 
         if (missing.Length > 0)
             throw new InvalidOperationException(
-                $"Missing required environment variables: {string.Join(", ", missing)}");
+                $"Missing required configuration: {string.Join(", ", missing)}");
     }
 }
