@@ -59,6 +59,9 @@ jobs:
                     AlarmRelayTopicArn=$(ALARM_TOPIC_ARN) \
                     Environment=$(ENVIRONMENT) \
                     LambdaArtifactVersion=$(SemVerVersionForBuild) \
+                    WayrooVPCId=$(WayrooVPCId) \
+                    WayrooAvailabilityZones="use1-az1,use1-az6" \
+                    WayrooVPCSubnetIds=$(ENVIRONMENT_VPC_SUBNET_IDS) \
                     --tags \
                       rs:environment=$(ENVIRONMENT) \
                       rs:service=$(ServiceName) \

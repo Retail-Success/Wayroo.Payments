@@ -1,4 +1,5 @@
 using Amazon.CDK;
+using Amazon.CDK.AWS.EC2;
 using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.SNS;
 using Constructs;
@@ -33,6 +34,16 @@ internal class ResourceStack : Stack
             "ArtifactsBucket",
             config.ArtifactsBucketArn);
 
+        // The recorder lambda needs to live in the Wayroo VPC so it can resolve internal hostnames
+        // like orders.luci-{env} when looking up the store/tenant for an account. Mirrors how the
+        // Notification recorder lambda is wired (Wayroo.Notification.Infrastructure/ResourceStack.cs).
+        var wayrooVpc = Vpc.FromVpcAttributes(this, id: "WayrooVPC", new VpcAttributes
+        {
+            VpcId = config.WayrooVpcId,
+            AvailabilityZones = config.WayrooAvailabilityZones,
+            PrivateSubnetIds = config.WayrooSubnetIds,
+        });
+
         // The default table name comes from the DataAccess options, matching how the lambda resolves
         // it at runtime; the table itself is named "{environment}-{tableName}".
         var dbClientOptions = new DataAccess.DynamoDbClientOptions();
@@ -52,7 +63,8 @@ internal class ResourceStack : Stack
                 artifactsBucket: artifactsBucket,
                 functionVersion: config.LambdaArtifactVersion,
                 alarmTopic: alarmTopic,
-                configurationTable: configurationTable)
+                configurationTable: configurationTable,
+                vpc: wayrooVpc)
         };
     }
 
@@ -110,12 +122,51 @@ internal class ResourceStack : Stack
         // Parameter Store at /luci/services/utility/OrdersClientOptions/ApiBaseUrl. Each environment's
         // value lives in SSM and the deploy pipeline doesn't need to plumb it through.
 
+        // VPC parameters — the recorder lambda runs inside the Wayroo VPC so it can hit internal
+        // hostnames (Orders). Values come from the env-specific pipeline variables files.
+        var wayrooVpcId = new CfnParameter(
+            this,
+            id: "WayrooVPCId",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description = "The ID of the VPC which contains the Wayroo APIs.",
+                MinLength = 1,
+            }
+        ).ValueAsString;
+
+        var wayrooAvailabilityZones = new CfnParameter(
+            this,
+            id: "WayrooAvailabilityZones",
+            new CfnParameterProps
+            {
+                Type = "List<String>",
+                Description =
+                    "The availability zones the VPC subnets live in (must match the supplied subnets).",
+                MinLength = 1,
+            }
+        ).ValueAsList;
+
+        var wayrooSubnetIds = new CfnParameter(
+            this,
+            id: "WayrooVPCSubnetIds",
+            new CfnParameterProps
+            {
+                Type = "List<String>",
+                Description = "The IDs of the private subnets the lambda's ENIs should be attached to.",
+                MinLength = 1,
+            }
+        ).ValueAsList;
+
         return new StackConfig
         {
             Environment = environment,
             AlarmTopicArn = alarmTopicArn,
             ArtifactsBucketArn = artifactsBucketArn,
             LambdaArtifactVersion = lambdaArtifactVersion,
+            WayrooVpcId = wayrooVpcId,
+            WayrooAvailabilityZones = wayrooAvailabilityZones,
+            WayrooSubnetIds = wayrooSubnetIds,
         };
     }
 }

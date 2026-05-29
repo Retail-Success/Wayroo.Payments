@@ -1,6 +1,7 @@
 using Amazon.CDK;
 using Amazon.CDK.AWS.CloudWatch;
 using Amazon.CDK.AWS.CloudWatch.Actions;
+using Amazon.CDK.AWS.EC2;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.Lambda;
 using Amazon.CDK.AWS.Lambda.EventSources;
@@ -27,7 +28,8 @@ internal class ConfigurationRecorderLambda
         IBucket artifactsBucket,
         string functionVersion,
         ITopic alarmTopic,
-        PaymentConfigurationTable configurationTable)
+        PaymentConfigurationTable configurationTable,
+        IVpc vpc)
     {
         var functionName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}";
 
@@ -89,6 +91,12 @@ internal class ConfigurationRecorderLambda
                 // at /luci/services/utility/OrdersClientOptions/ApiBaseUrl — not from an env var.
             },
             LogGroup = Logs,
+            // Run inside the Wayroo VPC so the lambda can resolve internal hostnames (orders.luci-{env})
+            // when looking up the store/tenant for a payment account. Without this, the lambda runs in
+            // AWS-managed network space and DNS lookups for internal Wayroo APIs fail. Mirrors the
+            // Notification recorder lambda's VPC wiring. CDK auto-creates a security group attached to
+            // the lambda; no SecurityGroups override here lets that happen.
+            Vpc = vpc,
             // While CDK can auto-create a role and policy aligning with the needs of this resource and the resources it's been configured to interact with,
             // to reduce the risks of having CloudFormation and deployments manage permissions, assume the role already exists with the necessary permissions.
             Role = lambdaExecutionRole
@@ -116,6 +124,9 @@ internal class ConfigurationRecorderLambda
         //   - ssm:GetParametersByPath on "/luci/services/utility/OrdersClientOptions/*" — the lambda
         //     loads the Orders API base URL from SSM at
         //     /luci/services/utility/OrdersClientOptions/ApiBaseUrl on cold start
+        //   - ec2:CreateNetworkInterface, ec2:DescribeNetworkInterfaces, ec2:DeleteNetworkInterface —
+        //     required because Vpc is set; lambda provisions ENIs in the supplied subnets on cold start
+        //     (the AWSLambdaVPCAccessExecutionRole managed policy covers these)
         //   - outbound network access to the Orders API (resolving store/tenant from the account number)
 
         ConfigureAlarms(
