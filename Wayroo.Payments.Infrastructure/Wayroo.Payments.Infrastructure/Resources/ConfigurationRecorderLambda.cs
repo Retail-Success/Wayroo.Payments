@@ -20,6 +20,7 @@ internal class ConfigurationRecorderLambda
     public readonly Queue Queue;
     public IFunction Resource { get; }
     public ILogGroup Logs { get; }
+    public WebhookEventBridgeRule WebhookEventBridgeRule { get; }
 
     internal ConfigurationRecorderLambda(
         Construct scope,
@@ -29,7 +30,8 @@ internal class ConfigurationRecorderLambda
         string functionVersion,
         ITopic alarmTopic,
         PaymentConfigurationTable configurationTable,
-        IVpc vpc)
+        IVpc vpc,
+        string webhookEventBusArn)
     {
         var functionName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}";
 
@@ -58,6 +60,17 @@ internal class ConfigurationRecorderLambda
                 MaxReceiveCount = 3, // retries before moving to DLQ
             },
         });
+
+        // Wire the environment's webhook event bus into the source queue. The rule has no
+        // detail-type/source filter on purpose — the upstream event shape isn't pinned down yet,
+        // so we take everything and let the recorder's parser handle the routing. See
+        // WebhookEventBridgeRule.cs for the rationale and how to narrow the filter later.
+        WebhookEventBridgeRule = new WebhookEventBridgeRule(
+            scope,
+            id: "WebhookEventBridgeRule",
+            environment: environment,
+            eventBusArn: webhookEventBusArn,
+            targetQueue: Queue);
 
         var lambdaClassInfo = typeof(Function);
         var lambdaSourceObjectKey =

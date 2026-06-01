@@ -12,4 +12,9 @@ internal class StackConfig
     public required string WayrooVpcId { get; init; }
     public required string[] WayrooAvailabilityZones { get; init; }
     public required string[] WayrooSubnetIds { get; init; }
+
+    // ARN of the environment's webhook event bus (e.g. arn:aws:events:us-east-1:{acct}:event-bus/
+    // {env}-webhook-bus). The bus is provisioned by another stack; we import it here so we can
+    // attach a Rule that forwards events into the recorder lambda's source queue.
+    public required string WebhookEventBusArn { get; init; }
 }
