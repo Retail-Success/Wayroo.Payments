@@ -64,7 +64,8 @@ internal class ResourceStack : Stack
                 functionVersion: config.LambdaArtifactVersion,
                 alarmTopic: alarmTopic,
                 configurationTable: configurationTable,
-                vpc: wayrooVpc)
+                vpc: wayrooVpc,
+                webhookEventBusArn: config.WebhookEventBusArn),
         };
     }
 
@@ -158,6 +159,18 @@ internal class ResourceStack : Stack
             }
         ).ValueAsList;
 
+        var webhookEventBusArn = new CfnParameter(
+            this,
+            id: "WebhookEventBusArn",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description =
+                    "ARN of the environment's webhook event bus (provisioned by another stack). The recorder lambda's source queue subscribes to events on this bus.",
+                MinLength = 1,
+            }
+        ).ValueAsString;
+
         return new StackConfig
         {
             Environment = environment,
@@ -167,6 +180,7 @@ internal class ResourceStack : Stack
             WayrooVpcId = wayrooVpcId,
             WayrooAvailabilityZones = wayrooAvailabilityZones,
             WayrooSubnetIds = wayrooSubnetIds,
+            WebhookEventBusArn = webhookEventBusArn,
         };
     }
 }

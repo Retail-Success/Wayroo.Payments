@@ -13,3 +13,7 @@ variables:
   # Wayroo.Notification uses for dev.
   WayrooVPCId: vpc-002b82159df979c64
   ENVIRONMENT_VPC_SUBNET_IDS: "subnet-0c8efe661e7fb578f,subnet-062daf1f1a037a4c4"
+  # EventBridge bus where webhook events (e.g. ProPay credential webhooks) are published. The
+  # CDK stack creates a Rule on this bus targeting the recorder lambda's source queue. The bus
+  # itself is provisioned by another stack — we just import it by ARN.
+  WEBHOOK_EVENT_BUS_ARN: arn:aws:events:us-east-1:203538442868:event-bus/dev-webhook-bus
