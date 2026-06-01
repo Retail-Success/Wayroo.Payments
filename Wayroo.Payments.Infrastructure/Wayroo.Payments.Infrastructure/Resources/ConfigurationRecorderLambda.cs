@@ -145,7 +145,9 @@ internal class ConfigurationRecorderLambda
         ConfigureAlarms(
             scope,
             environment,
-            alarmTopic
+            alarmTopic,
+            sourceQueue: Queue,
+            deadLetterQueue: deadLetterQueue
         );
     }
 
@@ -155,10 +157,85 @@ internal class ConfigurationRecorderLambda
     // <param name="scope"></param>
     // <param name="environment"></param>
     // <param name="alarmTopic"></param>
+    // <param name="sourceQueue"></param>
+    // <param name="deadLetterQueue"></param>
     private void ConfigureAlarms(Construct scope,
         string environment,
-        ITopic alarmTopic)
+        ITopic alarmTopic,
+        IQueue sourceQueue,
+        IQueue deadLetterQueue)
     {
+        // This alarm should cause an engineer to determine if a logic flaw or data shape change has
+        // occurred requiring a fix and new deployment. ProcessFailureHandler routes anything that isn't
+        // a ResourceConflict / ResourceAccess exception to the DLQ — any message landing here is by
+        // definition outside the recorder's normal handling paths.
+        deadLetterQueue.MetricApproximateNumberOfMessagesVisible()
+            .CreateAlarm(
+                scope,
+                id: "ConfigurationRecorderLambdaDeadLettersExistAlarm",
+                new CreateAlarmOptions
+                {
+                    AlarmName =
+                        $"{environment}-{Function.ServiceName}-{Function.ComponentName}-DeadLetters-Exist",
+                    AlarmDescription =
+                        "Enable awareness to events which were unable to be processed and require attention.",
+                    ComparisonOperator = ComparisonOperator.GREATER_THAN_THRESHOLD,
+                    DatapointsToAlarm = 1,
+                    EvaluationPeriods = 1,
+                    Threshold = 0,
+                    TreatMissingData = TreatMissingData.NOT_BREACHING,
+                    ActionsEnabled = true,
+                }
+            )
+            .AddAlarmAction(new SnsAction(alarmTopic));
+
+        // This alarm should cause an engineer to re-drive a message which was forgotten about after
+        // fixing a previous dead letter alarm. Fires when the oldest message in the DLQ is at least a
+        // day old — implies the original DeadLetters-Exist alarm went unacknowledged.
+        deadLetterQueue.MetricApproximateAgeOfOldestMessage()
+            .CreateAlarm(
+                scope,
+                id: "ConfigurationRecorderLambdaDeadLettersStillExistAlarm",
+                new CreateAlarmOptions
+                {
+                    AlarmName =
+                        $"{environment}-{Function.ServiceName}-{Function.ComponentName}-DeadLetters-StillExist",
+                    AlarmDescription =
+                        "Enable awareness to events which were unable to be processed and are at least a day old.",
+                    ComparisonOperator = ComparisonOperator.GREATER_THAN_THRESHOLD,
+                    DatapointsToAlarm = 1,
+                    EvaluationPeriods = 1,
+                    Threshold = TimeSpan.FromDays(1).TotalSeconds,
+                    TreatMissingData = TreatMissingData.NOT_BREACHING,
+                    ActionsEnabled = true,
+                }
+            )
+            .AddAlarmAction(new SnsAction(alarmTopic));
+
+        // This alarm should cause an engineer to evaluate the performance of the lambda and consider
+        // increasing its throughput or scaling. Fires when the oldest message in the source queue is
+        // older than a minute — implies the lambda isn't keeping up with the incoming event rate.
+        sourceQueue.MetricApproximateAgeOfOldestMessage()
+            .CreateAlarm(
+                scope,
+                id: "ConfigurationRecorderLambdaSourceQueueThrottledAlarm",
+                new CreateAlarmOptions
+                {
+                    AlarmName =
+                        $"{environment}-{Function.ServiceName}-{Function.ComponentName}-Sources-Throttled",
+                    AlarmDescription =
+                        "Enable awareness to the lambda not keeping up with the volume coming in based on high age of message.",
+                    ComparisonOperator = ComparisonOperator.GREATER_THAN_THRESHOLD,
+                    DatapointsToAlarm = 1,
+                    EvaluationPeriods = 1,
+                    // Expect the lambda to process messages within a minute of them being visible.
+                    Threshold = TimeSpan.FromMinutes(1).TotalSeconds,
+                    TreatMissingData = TreatMissingData.NOT_BREACHING,
+                    ActionsEnabled = true,
+                }
+            )
+            .AddAlarmAction(new SnsAction(alarmTopic));
+
         // This alarm should cause an engineer to evaluate the performance of the lambda and consider increasing its throughput or scaling.
         Resource.MetricErrors()
             .CreateAlarm(

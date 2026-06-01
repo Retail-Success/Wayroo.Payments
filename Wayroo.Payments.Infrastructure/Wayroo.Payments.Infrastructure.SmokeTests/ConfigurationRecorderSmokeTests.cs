@@ -83,7 +83,11 @@ public class ConfigurationRecorderSmokeTests
         // webhook the lambda processes in production.
         const string smokeTestProviderId = "propay";
 
-        var messageBody = JsonSerializer.Serialize(new
+        // Mirrors the EventBridge envelope the recorder's queue receives via the {env}-webhook-bus
+        // rule. The smoke test sends straight to SQS (skipping the rule) so it doesn't depend on the
+        // upstream publisher being live — but uses the same body shape so the lambda's parser hits
+        // the same detail.payload.accountNum path it does in production.
+        var detail = new
         {
             notificationId = Guid.NewGuid().ToString(),
             eventType = "merchantware.credentials.created",
@@ -101,6 +105,17 @@ public class ConfigurationRecorderSmokeTests
                     merchantKey = "smoke-test",
                 },
             },
+        };
+        var messageBody = JsonSerializer.Serialize(new
+        {
+            version = "0",
+            id = Guid.NewGuid().ToString(),
+            detailType = "merchantware.credentials.created",
+            source = "propay.webhook",
+            time = DateTime.UtcNow.ToString("O"),
+            region = "us-east-1",
+            resources = Array.Empty<string>(),
+            detail,
         });
 
         var queueUrl = (await _sqsClient.GetQueueUrlAsync(_queueName)).QueueUrl;

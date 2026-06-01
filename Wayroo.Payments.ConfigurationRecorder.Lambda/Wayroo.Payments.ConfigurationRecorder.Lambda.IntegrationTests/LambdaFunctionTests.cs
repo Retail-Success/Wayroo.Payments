@@ -73,9 +73,11 @@ public class LambdaFunctionTests(TestFixture fixture)
 
         SetRecorderEnvironment(tableName);
 
-        // Mirrors the shape of the real provider webhook the recorder reads — only payload.accountNum is
-        // consumed; the whole body is persisted verbatim as ProviderConfiguration.
-        var messageBody = JsonSerializer.Serialize(new
+        // Mirrors the EventBridge envelope the recorder's queue actually receives (the
+        // {env}-webhook-bus rule wraps the provider webhook in this envelope before SQS delivery).
+        // The recorder reads detail.payload.accountNum and persists the inner 'detail' object as
+        // ProviderConfiguration; the surrounding envelope (version/id/source/region/…) is dropped.
+        var detail = new
         {
             notificationId = Guid.NewGuid().ToString(),
             eventType = "merchantware.credentials.created",
@@ -93,7 +95,24 @@ public class LambdaFunctionTests(TestFixture fixture)
                     merchantKey = "4ZV7Q-DMJ6R-AZEGY-NNYFE-CNFF3",
                 },
             },
+        };
+        var messageBody = JsonSerializer.Serialize(new
+        {
+            version = "0",
+            id = Guid.NewGuid().ToString(),
+            detailType = "merchantware.credentials.created",
+            source = "propay.webhook",
+            account = "203538442868",
+            time = DateTime.UtcNow.ToString("O"),
+            region = "us-east-1",
+            resources = Array.Empty<string>(),
+            detail,
         });
+        // What the recorder will persist — the inner 'detail' block as raw JSON (extracted via
+        // JsonElement.GetRawText() inside the parser, so it's the byte-identical sub-string of
+        // messageBody).
+        var expectedConfiguration = JsonDocument.Parse(messageBody).RootElement
+            .GetProperty("detail").GetRawText();
 
         var function = new Function();
         var sqsEvent = new SQSEvent
@@ -124,7 +143,7 @@ public class LambdaFunctionTests(TestFixture fixture)
         response.Item["ProviderId"].S.Should().Be(expectedProviderId);
         response.Item["TenantId"].N.Should().Be(expectedTenantId.ToString());
         response.Item["AccountId"].S.Should().Be(accountNumber.ToString());
-        response.Item["ProviderConfiguration"].S.Should().Be(messageBody);
+        response.Item["ProviderConfiguration"].S.Should().Be(expectedConfiguration);
         response.Item.Should().ContainKey("CreatedOn");
         response.Item.Should().ContainKey("ModifiedOn");
     }
