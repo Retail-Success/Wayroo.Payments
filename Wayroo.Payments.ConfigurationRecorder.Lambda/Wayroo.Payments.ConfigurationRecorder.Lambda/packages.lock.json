@@ -2,6 +2,18 @@
   "version": 1,
   "dependencies": {
     "net10.0": {
+      "Amazon.Extensions.Configuration.SystemsManager": {
+        "type": "Direct",
+        "requested": "[7.1.0, )",
+        "resolved": "7.1.0",
+        "contentHash": "2mJlP10FIYs2IRXKqKvx8zpQv16Yth8tf7iD0L68LZaOwDhs4RNf61Wmw/6pMejYSmRNAj4jhPHSdHZs2/ppSw==",
+        "dependencies": {
+          "AWSSDK.AppConfigData": "4.0.2.14",
+          "AWSSDK.Extensions.NETCore.Setup": "4.0.3.21",
+          "AWSSDK.SimpleSystemsManagement": "4.0.6.11",
+          "Microsoft.Extensions.Configuration": "2.0.2"
+        }
+      },
       "Amazon.Lambda.Core": {
         "type": "Direct",
         "requested": "[2.8.1, )",
@@ -144,6 +156,14 @@
           "Newtonsoft.Json": "13.0.3"
         }
       },
+      "AWSSDK.AppConfigData": {
+        "type": "Transitive",
+        "resolved": "4.0.2.14",
+        "contentHash": "0DqTHTHBLDdGpETfc1S3bAkefSCvM4YeUXW7IQUTPrm6aSlZVjbSk3XFuogaHXw4XRO9vlejqWoqoDv55usQEg==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.3.10, 5.0.0)"
+        }
+      },
       "AWSSDK.Core": {
         "type": "Transitive",
         "resolved": "4.0.3.32",
@@ -155,6 +175,25 @@
         "contentHash": "oF7L2hcbRpzlJnib8HHy6TtyGCJRZuwCGJgAxHJfYdZkWFTY2mV/RgxaZDy45Vq4snje6TXD5MN11wd7m9EGxQ==",
         "dependencies": {
           "AWSSDK.Core": "[4.0.3.15, 5.0.0)"
+        }
+      },
+      "AWSSDK.Extensions.NETCore.Setup": {
+        "type": "Transitive",
+        "resolved": "4.0.3.21",
+        "contentHash": "DwL6NanboPZVxPYR5D5s55ezlh2vhs5C6lzEzqFDoI7fOOmiTZtkfLLDzIXaWxrvw10/KFZfEVFqgT1kVO5nWA==",
+        "dependencies": {
+          "AWSSDK.Core": "4.0.3.10",
+          "Microsoft.Extensions.Configuration.Abstractions": "2.0.0",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "2.0.0"
+        }
+      },
+      "AWSSDK.SimpleSystemsManagement": {
+        "type": "Transitive",
+        "resolved": "4.0.6.11",
+        "contentHash": "fJD4G6RWR0l04N4c74Lg9i8X4LtzYEk7pbsM5em/eLAR1gbY0JL0fy+VHumwvaEMz+KmiYzApTmgYPC7JWKsVg==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.3.10, 5.0.0)"
         }
       },
       "Destructurama.Attributed": {
