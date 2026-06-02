@@ -2,6 +2,11 @@
   "Wayroo.Payments.Models": {
     "path": "Wayroo.Payments.Models/Wayroo.Payments.Models"
   },
+  "Wayroo.Payments.SDK": {
+    "path": "Wayroo.Payments.SDK/Wayroo.Payments.SDK",
+    "artifact_name": "Wayroo.Payments.SDK",
+    "type": "library"
+  },
   "Wayroo.Payments.DataAccess": {
     "path": "Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess",
     "tests": {
