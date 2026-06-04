@@ -47,11 +47,13 @@
         <Project Path="Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.UnitTests/Wayroo.Payments.ConfigurationRecorder.Lambda.UnitTests.csproj" />
         <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.IntegrationTests/Wayroo.Payments.DataAccess.IntegrationTests.csproj" />
         <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.UnitTests/Wayroo.Payments.DataAccess.UnitTests.csproj" />
+        <Project Path="Wayroo.Payments.API/Wayroo.Payments.API.UnitTests/Wayroo.Payments.API.UnitTests.csproj" />
         <Project Path="Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure.SmokeTests/Wayroo.Payments.Infrastructure.SmokeTests.csproj" />
     </Folder>
     <Project Path="Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda/Wayroo.Payments.ConfigurationRecorder.Lambda.csproj" />
     <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.csproj" />
     <Project Path="Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure.csproj" />
+    <Project Path="Wayroo.Payments.API/Wayroo.Payments.API/Wayroo.Payments.API.csproj" />
     <Project Path="Wayroo.Payments.Models/Wayroo.Payments.Models/Wayroo.Payments.Models.csproj" />
     <Project Path="Wayroo.Payments.SDK/Wayroo.Payments.SDK/Wayroo.Payments.SDK.csproj" />
 </Solution>
