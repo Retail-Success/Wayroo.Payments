@@ -1,7 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <!--
+      Targets net10 to match the other test projects in this solution (DataAccess + RecorderLambda).
+      The CI build agent only installs the net10 runtime, so a net8 testhost can't launch on it. The
+      subject-under-test (Wayroo.Payments.API) is still net8; net10 is forward-compatible with net8
+      assemblies, so the test project can reference it without issue.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
