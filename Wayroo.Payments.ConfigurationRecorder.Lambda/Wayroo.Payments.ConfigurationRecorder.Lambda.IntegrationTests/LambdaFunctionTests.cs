@@ -53,7 +53,7 @@ public class LambdaFunctionTests(TestFixture fixture)
         var tableName = await fixture.EstablishTableAsync(dynamoDbClient);
         var ordersStub = fixture.GetOrCreateOrdersStub();
 
-        const long accountNumber = 718040110898;
+        const long accountNumber = 203538442868;
         const long expectedStoreId = 1007;
         const long expectedTenantId = 42;
         const string expectedProviderId = "propay";
@@ -82,7 +82,8 @@ public class LambdaFunctionTests(TestFixture fixture)
             notificationId = Guid.NewGuid().ToString(),
             eventType = "merchantware.credentials.created",
             eventDateTimeUTC = "04/17/2025 10:37:42",
-            payload = new
+            // ProPay sends the payload as a JSON string, so serialize it here to mirror the real shape.
+            payload = JsonSerializer.Serialize(new
             {
                 accountNum = accountNumber.ToString(),
                 merchantId = "290031234BK1765",
@@ -94,7 +95,7 @@ public class LambdaFunctionTests(TestFixture fixture)
                     merchantSiteId = "3Q28PMZA",
                     merchantKey = "4ZV7Q-DMJ6R-AZEGY-NNYFE-CNFF3",
                 },
-            },
+            }),
         };
         var messageBody = JsonSerializer.Serialize(new
         {
@@ -108,12 +109,7 @@ public class LambdaFunctionTests(TestFixture fixture)
             resources = Array.Empty<string>(),
             detail,
         });
-        // What the recorder will persist — the inner 'detail' block as raw JSON (extracted via
-        // JsonElement.GetRawText() inside the parser, so it's the byte-identical sub-string of
-        // messageBody).
-        var expectedConfiguration = JsonDocument.Parse(messageBody).RootElement
-            .GetProperty("detail").GetRawText();
-
+        
         var function = new Function();
         var sqsEvent = new SQSEvent
         {
@@ -143,7 +139,7 @@ public class LambdaFunctionTests(TestFixture fixture)
         response.Item["ProviderId"].S.Should().Be(expectedProviderId);
         response.Item["TenantId"].N.Should().Be(expectedTenantId.ToString());
         response.Item["AccountId"].S.Should().Be(accountNumber.ToString());
-        response.Item["ProviderConfiguration"].S.Should().Be(expectedConfiguration);
+        response.Item["ProviderConfiguration"].S.Should().BeEquivalentTo(detail.payload);
         response.Item.Should().ContainKey("CreatedOn");
         response.Item.Should().ContainKey("ModifiedOn");
     }

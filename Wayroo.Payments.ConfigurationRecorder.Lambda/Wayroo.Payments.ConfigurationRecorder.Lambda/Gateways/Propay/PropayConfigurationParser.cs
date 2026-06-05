@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace Wayroo.Payments.ConfigurationRecorder.Lambda.Gateways.Propay;
@@ -11,7 +12,8 @@ namespace Wayroo.Payments.ConfigurationRecorder.Lambda.Gateways.Propay;
 /// (<c>version</c>, <c>id</c>, <c>source</c>, <c>account</c>, <c>region</c>, …) is dropped since it's
 /// delivery metadata, not provider data.
 /// </summary>
-public class PropayConfigurationParser : IPaymentConfigurationParser
+/// <param name="logger">The observibility provider for unexepcted errors.</param>
+public class PropayConfigurationParser(ILogger<PropayConfigurationParser> logger) : IPaymentConfigurationParser
 {
     private const string ProviderId = "propay";
 
@@ -33,7 +35,7 @@ public class PropayConfigurationParser : IPaymentConfigurationParser
     /// <c>accountNum</c> as either a JSON string (the real provider webhook always sends it quoted)
     /// or a number (so the unit/integration/smoke tests can emit a numeric literal without escaping).
     /// </summary>
-    private static bool TryReadDetail(string body, out string detailJson, out long accountNumber)
+    private bool TryReadDetail(string body, out string detailJson, out long accountNumber)
     {
         detailJson = string.Empty;
         accountNumber = 0;
@@ -45,8 +47,16 @@ public class PropayConfigurationParser : IPaymentConfigurationParser
         {
             using var document = JsonDocument.Parse(body);
             if (!document.RootElement.TryGetProperty("detail", out var detail)
-                || !detail.TryGetProperty("payload", out var payload)
-                || !payload.TryGetProperty("accountNum", out var accountNum))
+                || !detail.TryGetProperty("payload", out var payload))
+            {
+                return false;
+            }
+
+            var payloadObject = payload.ValueKind == JsonValueKind.String
+                ? JsonDocument.Parse(payload.GetString()!).RootElement
+                : payload;
+
+            if (!payloadObject.TryGetProperty("accountNum", out var accountNum))
             {
                 return false;
             }
@@ -61,13 +71,12 @@ public class PropayConfigurationParser : IPaymentConfigurationParser
             if (!parsed || accountNumber <= 0)
                 return false;
 
-            // GetRawText preserves the original JSON of the detail element (including whitespace) so
-            // the stored configuration is byte-identical to what the provider sent inside the envelope.
-            detailJson = detail.GetRawText();
+            detailJson = payloadObject.ToString();
             return true;
         }
-        catch (JsonException)
+        catch (Exception ex)
         {
+            logger.LogWarning(ex, "Unable to parse detail or determine account number.");
             return false;
         }
     }
