@@ -43,14 +43,7 @@ public class ProcessFailureHandler(
                 return;
             }
 
-            // Log the raw body on the dead-letter path only. These messages couldn't be parsed/persisted,
-            // so there are no extracted credentials to leak here — and the raw bytes are the only way to
-            // diagnose why the provider envelope didn't match what the parser expects. The happy path still
-            // never logs message.Body (see PaymentConfigurationMessageHandler).
-            logger.LogError(
-                failure,
-                "Unrecoverable error processing message. Dead-lettering. Raw body: {RawBody}",
-                message.Body);
+            logger.LogError(failure, "Unrecoverable error processing message. Dead-lettering.");
             await SendMessage(message, deadLetterQueueUrl, delaySeconds: 0);
         }
     }
