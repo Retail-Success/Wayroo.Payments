@@ -66,6 +66,14 @@ internal class ResourceStack : Stack
                 configurationTable: configurationTable,
                 vpc: wayrooVpc,
                 webhookEventBusArn: config.WebhookEventBusArn),
+            PaymentsAPI = new PaymentsAPI(
+                this,
+                environment: config.Environment,
+                wayrooVpc: wayrooVpc,
+                wayrooECSSecurityGroupId: config.WayrooECSSecurityGroupId,
+                cloudMapNamespaceId: config.CloudMapNamespaceId,
+                cloudMapNamespaceArn: config.CloudMapNamespaceArn,
+                configurationTable: configurationTable),
         };
     }
 
@@ -171,6 +179,44 @@ internal class ResourceStack : Stack
             }
         ).ValueAsString;
 
+        // ECS / Cloud Map parameters for the API construct. Mirrors Wayroo.Notification's stack —
+        // the API runs on the shared {env}-ecs-cluster, in the Wayroo ECS security group, registering
+        // service discovery in the luci-{env} Cloud Map namespace.
+        var wayrooECSSecurityGroupId = new CfnParameter(
+            this,
+            id: "WayrooECSSecurityGroupId",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description = "The ID of the security group the API tasks run in.",
+                MinLength = 1,
+            }
+        ).ValueAsString;
+
+        var cloudMapNamespaceId = new CfnParameter(
+            this,
+            id: "CloudMapNamespaceId",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description = "The ID of the AWS Cloud Map Namespace the API is registered into.",
+                MinLength = 1,
+            }
+        ).ValueAsString;
+
+        // The Cloud Map ARN is required alongside the ID — the .NET CDK can't derive one from the
+        // other when importing the namespace. Same caveat applies in Wayroo.Notification.
+        var cloudMapNamespaceArn = new CfnParameter(
+            this,
+            id: "CloudMapNamespaceArn",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description = "The ARN of the AWS Cloud Map Namespace the API is registered into.",
+                MinLength = 1,
+            }
+        ).ValueAsString;
+
         return new StackConfig
         {
             Environment = environment,
@@ -181,6 +227,9 @@ internal class ResourceStack : Stack
             WayrooAvailabilityZones = wayrooAvailabilityZones,
             WayrooSubnetIds = wayrooSubnetIds,
             WebhookEventBusArn = webhookEventBusArn,
+            WayrooECSSecurityGroupId = wayrooECSSecurityGroupId,
+            CloudMapNamespaceId = cloudMapNamespaceId,
+            CloudMapNamespaceArn = cloudMapNamespaceArn,
         };
     }
 }

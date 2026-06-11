@@ -1,28 +1,43 @@
 # Wayroo.Payments.SDK
 
-In-process client surface for the Wayroo Payments service. Consumers (e.g. Luci.Management.Api)
-inject `Wayroo.Payments.SDK.Clients.IClient` to read recorded per-store payment-provider
-configurations without taking a direct dependency on the data-access layer.
-
-## Noteworthy callouts
-
-This SDK currently delegates to `Wayroo.Payments.DataAccess` directly. Eventually Wayroo.Payments
-will expose its own HTTP API and the SDK will switch to calling it (same paradigm as the rest of
-the Wayroo APIs). Until then, the `Wayroo.Payments.DataAccess` dll is forced into the package
-output and should be removed when the SDK switches to the HTTP API.
+Typed HTTP client for the Wayroo Payments microservice. Composites (e.g. Luci.Management.Api) inject
+`Wayroo.Payments.SDK.Clients.IClient` to read recorded per-store payment-provider configurations
+without coupling to the micro's persistence layer.
 
 ## Usage
 
 ```csharp
 using Wayroo.Payments.SDK.Extensions;
 
-var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddPaymentsSDK(builder.Configuration);
+services.AddWayrooPaymentsClient(
+    builder.Configuration.BindSectionByTypeName,
+    n => n.AddHttpMessageHandler<HttpClientXRayTracingHandler>());
 ```
 
-Configuration keys consumed (via `Wayroo.Payments.DataAccess`):
+`WayrooPaymentsClientOptions` (section name: `WayrooPaymentsClientOptions`):
 
-- `AwsRegion` (default `us-east-1`)
-- `DynamoDb:ServiceUrl` (optional — for DynamoDB Local in integration tests)
-- `PaymentConfigurationTableName` (default `PaymentConfiguration`)
+```json
+{
+  "ApiBaseUrl": "https://payments.wayroo-dev"
+}
+```
+
+## Calling the API
+
+```csharp
+public class MyService(IClient payments)
+{
+    public Task<IReadOnlyList<PaymentProviderConfiguration>> Load(long storeId, CancellationToken ct)
+        => payments.GetConfigurationsForStore(storeId, ct);
+}
+```
+
+The single-record `GetConfiguration` throws `Refit.ApiException` with `StatusCode == NotFound` when
+no configuration has been recorded for the store + provider — catch and treat as null on the consumer
+side if a null-on-miss surface is wanted.
+
+## Notes
+
+- The micro is unauthenticated; auth is enforced upstream by the composite. The SDK does not attach
+  bearer tokens.
+- `StoreId` flows as a route parameter, not a JWT claim.

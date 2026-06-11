@@ -1,7 +1,6 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-using Wayroo.Payments.DataAccess.Extensions;
+using Microsoft.Extensions.Options;
+using Refit;
 using Wayroo.Payments.SDK.Clients;
 
 namespace Wayroo.Payments.SDK.Extensions;
@@ -9,20 +8,41 @@ namespace Wayroo.Payments.SDK.Extensions;
 public static class IServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the Wayroo Payments SDK: the in-process <see cref="IClient"/> plus the underlying DynamoDB
-    /// repository wired up by <see cref="Wayroo.Payments.DataAccess.Extensions.IServiceCollectionExtensions.AddPaymentsDataAccess"/>.
+    /// Registers the Wayroo Payments typed HTTP client: binds <see cref="WayrooPaymentsClientOptions"/>,
+    /// wires up Refit's <see cref="IClient"/> against the configured base URL, and surfaces the
+    /// <see cref="IHttpClientBuilder"/> for further customization (e.g. X-Ray tracing).
     /// </summary>
-    /// <remarks>
-    /// The signature differs from <c>AddNotificationSDK(string environment)</c> because payments' DataAccess
-    /// already takes <see cref="IConfiguration"/> directly (reads <c>AwsRegion</c>, <c>DynamoDb:ServiceUrl</c>,
-    /// and <c>PaymentConfigurationTableName</c>). Keep it that way — don't refactor for false symmetry.
-    /// </remarks>
-    public static IServiceCollection AddPaymentsSDK(
+    /// <example>
+    /// <code>
+    /// services.AddWayrooPaymentsClient(
+    ///     builder.Configuration.BindSectionByTypeName,
+    ///     n => n.AddHttpMessageHandler&lt;HttpClientXRayTracingHandler&gt;());
+    /// </code>
+    /// </example>
+    public static IServiceCollection AddWayrooPaymentsClient(
         this IServiceCollection services,
-        IConfiguration configuration)
+        Action<WayrooPaymentsClientOptions> configureOptions,
+        Action<IHttpClientBuilder>? configureHttpClient = null)
     {
-        services.AddPaymentsDataAccess(configuration);
-        services.TryAddSingleton<IClient, Client>();
+        services.Configure(configureOptions);
+
+        var httpClientBuilder = services
+            .AddRefitClient<IClient>()
+            .ConfigureHttpClient((sp, client) =>
+            {
+                var options = sp.GetRequiredService<IOptions<WayrooPaymentsClientOptions>>().Value;
+
+                if (string.IsNullOrWhiteSpace(options.ApiBaseUrl))
+                {
+                    throw new InvalidOperationException(
+                        $"{nameof(WayrooPaymentsClientOptions)}.{nameof(WayrooPaymentsClientOptions.ApiBaseUrl)} is not configured.");
+                }
+
+                client.BaseAddress = new Uri(options.ApiBaseUrl);
+            });
+
+        configureHttpClient?.Invoke(httpClientBuilder);
+
         return services;
     }
 }

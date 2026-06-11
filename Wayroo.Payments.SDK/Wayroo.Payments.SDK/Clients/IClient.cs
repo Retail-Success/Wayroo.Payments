@@ -1,26 +1,33 @@
+using Refit;
 using Wayroo.Payments.Models;
 
 namespace Wayroo.Payments.SDK.Clients;
 
 /// <summary>
-/// In-process client surface for the Wayroo Payments service. Mirrors the shape used by
-/// <c>Wayroo.Notification.SDK.Clients.IClient</c> so consumers (e.g. Luci.Management.Api) follow the
-/// same SDK pattern across the Wayroo product suite.
+/// Typed HTTP client for the Wayroo Payments microservice. Refit generates the implementation at runtime
+/// from these annotations; consumers inject <see cref="IClient"/> directly.
 /// </summary>
+/// <remarks>
+/// The micro is unauthenticated (matches the Wayroo.Notification convention) and trusts the calling
+/// composite to enforce authorization. StoreId flows in as a route parameter rather than from a JWT claim.
+/// </remarks>
 public interface IClient
 {
     /// <summary>
-    /// Retrieves the configuration for a store + provider, or <c>null</c> if none exists.
+    /// Retrieves every provider configuration recorded for the store (one per provider).
     /// </summary>
-    Task<PaymentProviderConfiguration?> GetConfiguration(
-        long storeId,
-        string providerId,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Retrieves every provider configuration recorded for a store (one per provider).
-    /// </summary>
+    [Get("/api/payments/v1.0/stores/{storeId}/configurations")]
     Task<IReadOnlyList<PaymentProviderConfiguration>> GetConfigurationsForStore(
         long storeId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves the configuration for the store + provider. Returns 404 (which Refit surfaces as an
+    /// <see cref="ApiException"/>) when no configuration has been recorded.
+    /// </summary>
+    [Get("/api/payments/v1.0/stores/{storeId}/configurations/{providerId}")]
+    Task<PaymentProviderConfiguration> GetConfiguration(
+        long storeId,
+        string providerId,
+        CancellationToken cancellationToken = default);
 }
