@@ -10,6 +10,7 @@ public static class EnvironmentVariableKeys
     public static readonly string AspNetCoreEnvironment = nameof(AspNetCoreEnvironment);
     public static readonly string Environment = nameof(Environment);
     public static readonly string AwsRegion = nameof(AwsRegion);
+    public static readonly string PaymentConfigurationTableName = nameof(PaymentConfigurationTableName);
     public static readonly string OtelServiceName = "OpenTelemetry:ServiceName";
     public static readonly string OtelServiceVersion = "OpenTelemetry:ServiceVersion";
     public static readonly string OtelExporterOtlpEndpoint = "OpenTelemetry:ExporterOtlpEndpoint";
