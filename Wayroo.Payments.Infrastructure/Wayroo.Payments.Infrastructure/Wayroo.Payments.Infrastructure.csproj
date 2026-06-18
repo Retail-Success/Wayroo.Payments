@@ -17,6 +17,13 @@
         <PackageReference Include="Constructs" Version="[10.0.0,11.0.0)" />
     </ItemGroup>
     <ItemGroup>
+        <!--
+          Wayroo.Payments.API targets net8.0 (matches Notification.API and the dotnet/aspnet:8.0
+          Dockerfile). This project is net10 (CDK), so we can't ProjectReference the API directly.
+          The PaymentsAPI construct hardcodes the small set of env-var keys instead of importing
+          Wayroo.Payments.API.EnvironmentVariableKeys; if those keys ever change, the constants in
+          PaymentsAPI.cs need to be updated alongside.
+        -->
         <ProjectReference Include="..\..\Wayroo.Payments.ConfigurationRecorder.Lambda\Wayroo.Payments.ConfigurationRecorder.Lambda\Wayroo.Payments.ConfigurationRecorder.Lambda.csproj" />
         <ProjectReference Include="..\..\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess.csproj" />
     </ItemGroup>

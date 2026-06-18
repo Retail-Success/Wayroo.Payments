@@ -17,4 +17,10 @@ internal class StackConfig
     // {env}-webhook-bus). The bus is provisioned by another stack; we import it here so we can
     // attach a Rule that forwards events into the recorder lambda's source queue.
     public required string WebhookEventBusArn { get; init; }
+
+    // ECS Fargate API hosting parameters — used by the Wayroo.Payments.API construct, mirrors the
+    // values Notification's stack consumes.
+    public required string WayrooECSSecurityGroupId { get; init; }
+    public required string CloudMapNamespaceId { get; init; }
+    public required string CloudMapNamespaceArn { get; init; }
 }

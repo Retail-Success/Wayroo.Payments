@@ -1,43 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Wayroo.Payments.SDK</RootNamespace>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Description>Enables utilizing the Wayroo Payments service within the Wayroo product suite.</Description>
+    <Description>Client SDK for the Wayroo Payments microservice. Provides a typed HTTP client (Refit) over the payment-configuration read endpoints.</Description>
   </PropertyGroup>
 
-  <!--
-    Microsoft.Extensions.* are TFM-pinned so consumers on net8.0 (e.g. Luci.Management.Api) don't
-    see a transitive downgrade against their own 8.x direct references. Matches the conditional
-    in Wayroo.Payments.DataAccess.
-  -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+  <ItemGroup>
+    <!-- Refit.HttpClientFactory pulls in Refit + IHttpClientFactory integration. Version pinned to 7.0.0 to
+         match what RetailSuccess.SDK.Core ships with on net6+, so consumers on net8 (e.g. Luci.Management.Api)
+         don't see a transitive downgrade. -->
+    <PackageReference Include="Refit.HttpClientFactory" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Wayroo.Payments.Models\Wayroo.Payments.Models\Wayroo.Payments.Models.csproj" />
-    <!--
-      DataAccess is an internal implementation detail of the SDK (consumers should not depend on it directly).
-      Mark the project reference private and force the dll into the package output, the same trick
-      Wayroo.Notification.SDK uses. Remove this once Wayroo.Payments exposes a real HTTP API and the SDK
-      switches to calling it.
-    -->
-    <ProjectReference Include="..\..\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess.csproj" PrivateAssets="all" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="..\..\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess\bin\$(Configuration)\net8.0\Wayroo.Payments.DataAccess.dll" Pack="true" PackagePath="lib\net8.0" />
-    <None Include="..\..\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess\bin\$(Configuration)\net10.0\Wayroo.Payments.DataAccess.dll" Pack="true" PackagePath="lib\net10.0" />
   </ItemGroup>
 
 </Project>

@@ -9,10 +9,17 @@
     "artifact_name": "Wayroo.Payments.SDK",
     "type": "library"
   },
-  "Wayroo.Payments.SDK": {
-    "path": "Wayroo.Payments.SDK/Wayroo.Payments.SDK",
-    "artifact_name": "Wayroo.Payments.SDK",
-    "type": "library"
+  "Wayroo.Payments.API": {
+    "path": "Wayroo.Payments.API/Wayroo.Payments.API",
+    "artifactName": "wayroo-payments-api",
+    "serviceName": "WayrooPayments",
+    "componentName": "API",
+    "tests": {
+      "Wayroo.Payments.API.UnitTests": {
+        "path": "Wayroo.Payments.API/Wayroo.Payments.API.UnitTests",
+        "type": "unit-tests"
+      }
+    }
   },
   "Wayroo.Payments.DataAccess": {
     "path": "Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess",
