@@ -17,3 +17,9 @@ variables:
   # CDK stack creates a Rule on this bus targeting the recorder lambda's source queue. The bus
   # itself is provisioned by another stack — we just import it by ARN.
   WEBHOOK_EVENT_BUS_ARN: arn:aws:events:us-east-1:075515629050:event-bus/prod-webhook-bus
+  # ECS / Cloud Map resources the Payments API construct attaches to — the shared Wayroo ECS
+  # security group and the luci-prod Cloud Map namespace (service registers as payments.luci-prod).
+  # Shared per-account resources; mirrors the values Wayroo.Notification uses for prod.
+  AWS_SecurityGroupId: "sg-0f78e65cd2af95c04"
+  CloudMapNamespaceId: "ns-vy5bxti73kgbrbzl"
+  CloudMapNamespaceArn: "arn:aws:servicediscovery:us-east-1:075515629050:namespace/ns-vy5bxti73kgbrbzl"

@@ -63,6 +63,9 @@ jobs:
                     WayrooAvailabilityZones="use1-az1,use1-az6" \
                     WayrooVPCSubnetIds=$(ENVIRONMENT_VPC_SUBNET_IDS) \
                     WebhookEventBusArn=$(WEBHOOK_EVENT_BUS_ARN) \
+                    WayrooECSSecurityGroupId=$(AWS_SecurityGroupId) \
+                    CloudMapNamespaceId=$(CloudMapNamespaceId) \
+                    CloudMapNamespaceArn=$(CloudMapNamespaceArn) \
                     --tags \
                       rs:environment=$(ENVIRONMENT) \
                       rs:service=$(ServiceName) \
@@ -70,8 +73,8 @@ jobs:
                       rs:maintainer=devs
               displayName: deploy Infrastructure CF Template to ${{ parameters.environment }}
 
-  # Only runs when an "api" component exists (it deploys to ECS). Payments is lambda-only today,
-  # so this is skipped; it activates automatically once an API is added to components.json.
+  # Only runs when an "api" component exists (it deploys to ECS). Activates once an API is added
+  # to components.json (the Wayroo.Payments.API construct registers payments.luci-{env} via Cloud Map).
   - job: Update${{ parameters.environment }}ECS
     dependsOn: ${{ parameters.jobName }}
     condition: and(succeeded(), eq(variables['HasAPIs'], 'true'))
