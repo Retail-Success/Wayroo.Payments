@@ -14,6 +14,7 @@
     "artifactName": "wayroo-payments-api",
     "serviceName": "WayrooPayments",
     "componentName": "API",
+    "type": "api",
     "tests": {
       "Wayroo.Payments.API.UnitTests": {
         "path": "Wayroo.Payments.API/Wayroo.Payments.API.UnitTests",
