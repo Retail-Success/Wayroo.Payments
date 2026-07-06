@@ -13,7 +13,7 @@
     "path": "Wayroo.Payments.API/Wayroo.Payments.API",
     "artifactName": "wayroo-payments-api",
     "serviceName": "WayrooPayments",
-    "componentName": "API",
+    "componentName": "payments",
     "type": "api",
     "tests": {
       "Wayroo.Payments.API.UnitTests": {
