@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net8.0 for consumers still on net8 (Luci.Orders, Luci.Utility.Api); net10.0 for this repo. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Wayroo.Payments.Messages</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Ship XML docs so consumers get IntelliSense on the contracts and their versioning rules. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Package metadata">
+    <Description>Provider-neutral payment integration event contracts published by the Wayroo Payments service on EventBridge: MerchantAccountStatusChanged, PaymentSettlementRecorded, PayoutCompleted, DisputeOpened, DisputeStatusChanged and TransferReturned.</Description>
+    <Authors>Retail Success</Authors>
+    <Company>Retail Success</Company>
+    <RepositoryUrl>https://github.com/Retail-Success/Wayroo.Payments</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Retail-Success/Wayroo.Payments</PackageProjectUrl>
+    <PackageTags>wayroo;retail-success;events;payments;messages</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <PropertyGroup Label="SourceLink and symbols">
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <!-- Embed symbols in the assembly so consumers can debug into the contracts regardless of
+         whether the feed serves symbol packages. -->
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Supplies the integration-event envelope these contracts plug into: IStoreScopedEvent,
+         IntegrationEnvelope/IntegrationMetadata, DetailType and IntegrationJson. -->
+    <PackageReference Include="Wayroo.Common" Version="2.1.1" />
+  </ItemGroup>
+
+</Project>
