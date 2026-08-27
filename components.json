@@ -4,6 +4,17 @@
     "artifact_name": "Wayroo.Payments.Models",
     "type": "library"
   },
+  "Wayroo.Payments.Messages": {
+    "path": "Wayroo.Payments.Messages/Wayroo.Payments.Messages",
+    "artifact_name": "Wayroo.Payments.Messages",
+    "type": "library",
+    "tests": {
+      "Wayroo.Payments.Messages.UnitTests": {
+        "path": "Wayroo.Payments.Messages/Wayroo.Payments.Messages.UnitTests",
+        "type": "unit-tests"
+      }
+    }
+  },
   "Wayroo.Payments.SDK": {
     "path": "Wayroo.Payments.SDK/Wayroo.Payments.SDK",
     "artifact_name": "Wayroo.Payments.SDK",
