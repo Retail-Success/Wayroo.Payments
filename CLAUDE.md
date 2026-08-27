@@ -12,6 +12,21 @@
   Wayroo.Common integration envelope and `PutEvents` it to the intraprocess bus. Read its `README.md`
   before writing a publisher or a consumer — notably, consumers must parse the EventBridge envelope
   natively (`IntegrationJson.DeserializeMessage`), never via `EventQueueDeserializer`.
+- `Wayroo.Payments.Messages` — the provider-neutral payment integration events this service publishes
+  on EventBridge (`MerchantAccountStatusChanged`, `PaymentSettlementRecorded`, `PayoutCompleted`,
+  `DisputeOpened`, `DisputeStatusChanged`, `TransferReturned`), shipped as a NuGet package on the Luci
+  feed. The envelope they plug into (`IStoreScopedEvent`, `IntegrationEnvelope`, `DetailType`,
+  `IntegrationJson`) comes from the `Wayroo.Common` package. Two rules govern changes here, both
+  documented on `PaymentEvents`:
+    - **Provider neutrality.** The only provider detail allowed through is an opaque `ProviderId` plus
+      `Provider*Ref` strings (and the diagnostic-only `Capabilities` bag). A provider status enum,
+      error taxonomy or account model on these types is a design error — the point is that a store can
+      change provider without a consumer changing.
+    - **Additive-minor only.** Adding a nullable property or a new event type is safe; adding an
+      **enum member is breaking**, because enums travel as strings and an unrecognised value throws in
+      a consumer on an older package version. That is why the enums are complete sets up front and
+      open-ended vocabularies (fee types, reason codes) are `string` with well-known constants.
+      `Wayroo.Payments.Messages.UnitTests` pins both behaviours — extend it with any contract change.
 - `Wayroo.Payments.Infrastructure` — the AWS CDK app that deploys the lambda (log group, SQS
   queue + DLQ, CloudWatch alarms). `Program.cs` -> `ResourceStack.cs` -> `Resources/*.cs`.
 
