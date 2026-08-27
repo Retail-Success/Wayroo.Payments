@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Wayroo.Payments.ConfigurationRecorder.Lambda.Gateways.Propay;
 using Wayroo.Payments.DataAccess.Extensions;
+using Wayroo.Payments.Eventing.Extensions;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
 
@@ -108,6 +109,12 @@ public class Function
         // the pair directly. The Add{Provider}Gateway() pattern below is the same either way.
         services.AddLogging(lb => lb.AddSerilog(Log.Logger));
         services.AddPaymentsDataAccess(configuration);
+        // Registers IIntegrationEventPublisher over the intraprocess event bus ({env}-wayroo-events),
+        // which is the outbound counterpart to the webhook bus this lambda's queue is fed from.
+        // Deliberately inert today — nothing resolves it until D5 has the recorder publish
+        // StoreProviderConfigChanged on provider-config write. The EventBridge client is built lazily,
+        // so registering it costs a cold start nothing.
+        services.AddPaymentsEventPublishing(configuration);
         services.AddPaymentConfigurationRecorder(configuration);
         services.AddPropayGateway(configuration);
 

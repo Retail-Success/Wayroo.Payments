@@ -35,6 +35,15 @@
       }
     }
   },
+  "Wayroo.Payments.Eventing": {
+    "path": "Wayroo.Payments.Eventing/Wayroo.Payments.Eventing",
+    "tests": {
+      "Wayroo.Payments.Eventing.UnitTests": {
+        "path": "Wayroo.Payments.Eventing/Wayroo.Payments.Eventing.UnitTests",
+        "type": "unit-tests"
+      }
+    }
+  },
   "Wayroo.Payments.Infrastructure": {
     "path": "Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure",
     "artifactName": "Wayroo.Payments.Infrastructure",

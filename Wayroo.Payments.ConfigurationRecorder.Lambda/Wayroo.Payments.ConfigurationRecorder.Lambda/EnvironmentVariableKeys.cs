@@ -16,6 +16,13 @@ public static class EnvironmentVariableKeys
     /// <summary>URL of the dead-letter queue unrecoverable messages are routed to.</summary>
     public static readonly string DeadLetterQueueUrl = nameof(DeadLetterQueueUrl);
 
+    /// <summary>
+    /// ARN of the intraprocess EventBridge bus ({env}-wayroo-events) integration events are published
+    /// to. Sourced from the library that reads it so the two can't drift.
+    /// </summary>
+    public static readonly string WayrooEventsBusArn =
+        Eventing.EventingConfigurationKeys.WayrooEventsBusArn;
+
     // Every key declared here is validated on startup by Function.ValidateRequiredConfiguration
     // alongside ParameterStoreKeys.Keys().
 

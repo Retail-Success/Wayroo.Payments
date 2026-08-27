@@ -31,7 +31,8 @@ internal class ConfigurationRecorderLambda
         ITopic alarmTopic,
         PaymentConfigurationTable configurationTable,
         IVpc vpc,
-        string webhookEventBusArn)
+        string webhookEventBusArn,
+        string wayrooEventsBusArn)
     {
         var functionName = $"{environment}-{Function.ServiceName}-{Function.ComponentName}";
 
@@ -100,6 +101,11 @@ internal class ConfigurationRecorderLambda
                 [EnvironmentVariableKeys.AwsRegion] = "us-east-1",
                 [EnvironmentVariableKeys.SourceQueueUrl] = Queue.QueueUrl,
                 [EnvironmentVariableKeys.DeadLetterQueueUrl] = deadLetterQueue.QueueUrl,
+                // Bus the recorder publishes integration events to ({env}-wayroo-events, imported by
+                // ARN). Wired now (D4a) so the publisher is deployed dark; the recorder starts actually
+                // publishing StoreProviderConfigChanged in D5. The key is required at cold start, so
+                // this must stay set.
+                [EnvironmentVariableKeys.WayrooEventsBusArn] = wayrooEventsBusArn,
                 // The Orders API base URL is loaded by the lambda at runtime from SSM Parameter Store
                 // at /luci/services/utility/OrdersClientOptions/ApiBaseUrl — not from an env var.
             },
@@ -140,6 +146,11 @@ internal class ConfigurationRecorderLambda
         //   - ec2:CreateNetworkInterface, ec2:DescribeNetworkInterfaces, ec2:DeleteNetworkInterface —
         //     required because Vpc is set; lambda provisions ENIs in the supplied subnets on cold start
         //     (the AWSLambdaVPCAccessExecutionRole managed policy covers these)
+        //   - events:PutEvents scoped to the {env}-wayroo-events bus ARN (that bus only —
+        //     events:PutEvents cannot be scoped by event source, which is why the intraprocess bus is
+        //     separate from the webhook bus). Tracked for the Infrastructure team alongside the bus's
+        //     archive and logging config. Nothing publishes until D5, so a missing grant doesn't break
+        //     any of today's paths.
         //   - outbound network access to the Orders API (resolving store/tenant from the account number)
 
         ConfigureAlarms(

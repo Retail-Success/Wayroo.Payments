@@ -134,9 +134,9 @@
       },
       "Wayroo.Common": {
         "type": "Direct",
-        "requested": "[1.8.21, )",
-        "resolved": "1.8.21",
-        "contentHash": "X20GP/x6fWuFfhDRdX6JWgTGmq+3jS3cnmJ3cWcQ1ocVbdDSMTJGs9dYxjGqZD/gnjcYsvLDjI2PqiR0yVjexw==",
+        "requested": "[2.1.1, )",
+        "resolved": "2.1.1",
+        "contentHash": "47x1QvgEzD3W9fzfG19wR2O4/vk2kyTJxfDnjpROSgsKoJiGeI4rT5kYTfAookQsutx1A1mu6Tmdlvo9dMvOzw==",
         "dependencies": {
           "Destructurama.Attributed": "3.1.0",
           "Newtonsoft.Json": "13.0.3"
@@ -166,8 +166,8 @@
       },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.3.32",
-        "contentHash": "Z+FDac2Sb5dRImj87wVcgsj5PbE34CXDPGFodk11AKTx5B30/NgsnYynZH2NYS/uPZylzcX23NEjGbcMSbqAwQ=="
+        "resolved": "4.0.102.1",
+        "contentHash": "vsf+/o+S/euH/wG7bO1cha+OWaHvjgvpDeGFO6l3Vcdio9GlSfXkZDD2BogMuAJ+/jDyqqSgqmYVolPKV9ie/A=="
       },
       "AWSSDK.DynamoDBv2": {
         "type": "Transitive",
@@ -175,6 +175,14 @@
         "contentHash": "oF7L2hcbRpzlJnib8HHy6TtyGCJRZuwCGJgAxHJfYdZkWFTY2mV/RgxaZDy45Vq4snje6TXD5MN11wd7m9EGxQ==",
         "dependencies": {
           "AWSSDK.Core": "[4.0.3.15, 5.0.0)"
+        }
+      },
+      "AWSSDK.EventBridge": {
+        "type": "Transitive",
+        "resolved": "4.0.100.11",
+        "contentHash": "8yDkdrcF647OSfy+W5ZHuNHgalob5hTHvbT4V9xDbmpCS/3fD50wqymkobss37Lf7biPyTBQ0tEHxRT052Q4WQ==",
+        "dependencies": {
+          "AWSSDK.Core": "[4.0.102.1, 5.0.0)"
         }
       },
       "AWSSDK.Extensions.NETCore.Setup": {
@@ -460,6 +468,16 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.7, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.7, )",
           "Wayroo.Payments.Models": "[1.0.0, )"
+        }
+      },
+      "wayroo.payments.eventing": {
+        "type": "Project",
+        "dependencies": {
+          "AWSSDK.EventBridge": "[4.0.100.11, )",
+          "Microsoft.Extensions.Configuration.Abstractions": "[10.0.7, )",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.7, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.7, )",
+          "Wayroo.Common": "[2.1.1, )"
         }
       },
       "wayroo.payments.models": {
