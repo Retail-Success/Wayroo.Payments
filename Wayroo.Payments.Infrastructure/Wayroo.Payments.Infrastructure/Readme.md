@@ -19,6 +19,38 @@ for the Wayroo Payments service resources:
   they are intentionally not managed here, but rather managed by the Infrastructure team. The
   ConfigurationRecorder lambda assumes an existing `<environment>/WorkerRole`.
 
+  Each construct documents the statements its role needs; the current asks are the permission lists
+  in **ConfigurationRecorderLambda.cs** / **PaymentsAPI.cs**, plus publishing rights on the
+  intraprocess event bus:
+
+  ```json
+  {
+    "Effect": "Allow",
+    "Action": "events:PutEvents",
+    "Resource": "arn:aws:events:us-east-1:{account}:event-bus/{env}-wayroo-events"
+  }
+  ```
+
+  Attach it to `<environment>/WorkerRole` (the recorder lambda publishes from D5 onward) and, once
+  the API publishes, `<environment>-payments-service-role`. Scoping to that one bus ARN is the point
+  of keeping the intraprocess bus separate from the webhook bus: `events:PutEvents` cannot be scoped
+  by event `source`, so whatever can publish to a bus can forge any event on it.
+
+## Event buses
+
+Neither bus is created here. Both are provisioned by the Infrastructure team's common project and
+imported by ARN through a stack parameter, so this stack attaches nothing to either one and creates
+no EventBridge resources of its own.
+
+| Bus | Parameter | Direction |
+| --- | --- | --- |
+| `{env}-webhook-bus` | `WebhookEventBusArn` | **inbound** — `WebhookEventBridgeRule` forwards events into the recorder lambda's source queue |
+| `{env}-wayroo-events` | `WayrooEventsBusArn` | **outbound** — passed to the recorder lambda as an env var; its publisher `PutEvents` store-configuration changes here |
+
+The intraprocess bus's archive, event-bus logging and the `events:PutEvents` grant above are the
+Infrastructure team's to configure — `ByDesign.Infrastructure/modules/eventbus` is the reference
+shape. If replay or bus logs are ever needed and missing, that is where to look, not here.
+
 ## Testing Locally
 
 To generate the CloudFormation template locally:

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Multi-targeted for the same reason Models/DataAccess are: the recorder lambda is net10 and
+         Wayroo.Payments.API is net8 (dotnet/aspnet:8.0 image), and both need to publish eventually. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Wayroo.Payments.Eventing</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- AWS SDK v4, aligning with AWSSDK.DynamoDBv2 / AWSSDK.SQS elsewhere in the solution. -->
+    <PackageReference Include="AWSSDK.EventBridge" Version="4.0.100.11" />
+    <!-- 2.1.1 is the first version carrying the integration-event envelope (IIntegrationEvent,
+         IntegrationEnvelope, DetailType, IntegrationJson) this publisher is built on. -->
+    <PackageReference Include="Wayroo.Common" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+  </ItemGroup>
+
+</Project>

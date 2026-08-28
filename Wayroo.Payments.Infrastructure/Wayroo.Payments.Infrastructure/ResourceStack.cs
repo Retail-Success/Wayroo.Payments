@@ -65,7 +65,8 @@ internal class ResourceStack : Stack
                 alarmTopic: alarmTopic,
                 configurationTable: configurationTable,
                 vpc: wayrooVpc,
-                webhookEventBusArn: config.WebhookEventBusArn),
+                webhookEventBusArn: config.WebhookEventBusArn,
+                wayrooEventsBusArn: config.WayrooEventsBusArn),
             PaymentsAPI = new PaymentsAPI(
                 this,
                 environment: config.Environment,
@@ -179,6 +180,22 @@ internal class ResourceStack : Stack
             }
         ).ValueAsString;
 
+        // The other half of the pair: {env}-wayroo-events is the intraprocess (service-to-service)
+        // bus this service PUBLISHES on, where {env}-webhook-bus above is the inbound webhook bus it
+        // CONSUMES from. Both are provisioned by the Infrastructure team's common project, so both
+        // are imported by ARN rather than created here.
+        var wayrooEventsBusArn = new CfnParameter(
+            this,
+            id: "WayrooEventsBusArn",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description =
+                    "ARN of the environment's intraprocess event bus ({env}-wayroo-events, provisioned by another stack). Store configuration changes are published to this bus.",
+                MinLength = 1,
+            }
+        ).ValueAsString;
+
         // ECS / Cloud Map parameters for the API construct. Mirrors Wayroo.Notification's stack —
         // the API runs on the shared {env}-ecs-cluster, in the Wayroo ECS security group, registering
         // service discovery in the luci-{env} Cloud Map namespace.
@@ -227,6 +244,7 @@ internal class ResourceStack : Stack
             WayrooAvailabilityZones = wayrooAvailabilityZones,
             WayrooSubnetIds = wayrooSubnetIds,
             WebhookEventBusArn = webhookEventBusArn,
+            WayrooEventsBusArn = wayrooEventsBusArn,
             WayrooECSSecurityGroupId = wayrooECSSecurityGroupId,
             CloudMapNamespaceId = cloudMapNamespaceId,
             CloudMapNamespaceArn = cloudMapNamespaceArn,

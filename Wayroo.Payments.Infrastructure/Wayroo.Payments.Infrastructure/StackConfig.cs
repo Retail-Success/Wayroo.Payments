@@ -18,6 +18,13 @@ internal class StackConfig
     // attach a Rule that forwards events into the recorder lambda's source queue.
     public required string WebhookEventBusArn { get; init; }
 
+    // ARN of the environment's intraprocess event bus (e.g. arn:aws:events:us-east-1:{acct}:
+    // event-bus/{env}-wayroo-events). Also provisioned by another stack. This is the outbound half
+    // of the pair: the recorder consumes from the webhook bus above and publishes store
+    // configuration changes here. Passed to the lambda as an env var for the EventBridge publisher;
+    // this stack attaches nothing to the bus.
+    public required string WayrooEventsBusArn { get; init; }
+
     // ECS Fargate API hosting parameters — used by the Wayroo.Payments.API construct, mirrors the
     // values Notification's stack consumes.
     public required string WayrooECSSecurityGroupId { get; init; }

@@ -18,7 +18,9 @@
     <PackageReference Include="Amazon.Lambda.SQSEvents" Version="2.2.1" />
     <PackageReference Include="AWSSDK.SQS" Version="4.0.2.26" />
     <PackageReference Include="Luci.Orders.SDK" Version="8.0.242" />
-    <PackageReference Include="Wayroo.Common" Version="1.8.21" />
+    <!-- 2.1.1 brings the integration-event envelope Wayroo.Payments.Eventing publishes; the
+         exception types this lambda uses (Wayroo.Common.Exceptions) are unchanged from 1.8.x. -->
+    <PackageReference Include="Wayroo.Common" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
@@ -31,6 +33,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Wayroo.Payments.Models\Wayroo.Payments.Models\Wayroo.Payments.Models.csproj" />
     <ProjectReference Include="..\..\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess.csproj" />
+    <ProjectReference Include="..\..\Wayroo.Payments.Eventing\Wayroo.Payments.Eventing\Wayroo.Payments.Eventing.csproj" />
   </ItemGroup>
 
 </Project>

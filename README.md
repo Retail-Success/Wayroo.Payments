@@ -8,7 +8,8 @@ A Wayroo microservice for payments processing.
 | --- | --- |
 | `Wayroo.Payments.ConfigurationRecorder.Lambda` | SQS-triggered .NET 10 lambda. For now it logs on startup and acknowledges every message; payment-handling logic will be added here. |
 | `Wayroo.Payments.Messages` | The provider-neutral payment integration event contracts this service publishes on EventBridge. Shipped as the `Wayroo.Payments.Messages` NuGet package on the Luci feed for downstream consumers. |
-| `Wayroo.Payments.Infrastructure` | AWS CDK app that provisions the lambda and its supporting resources (log group, SQS queue + dead-letter queue, CloudWatch error alarms). |
+| `Wayroo.Payments.Eventing` | Publishes integration events to the `{env}-wayroo-events` intraprocess EventBridge bus (`IIntegrationEventPublisher` over `PutEvents`). See its [README](Wayroo.Payments.Eventing/Wayroo.Payments.Eventing/README.md) for the two-bus layout and the shape new consumers should take. |
+| `Wayroo.Payments.Infrastructure` | AWS CDK app that provisions the lambda and its supporting resources (log group, SQS queue + dead-letter queue, CloudWatch error alarms). Both event buses are provisioned elsewhere and imported by ARN. |
 
 ## Building
 
