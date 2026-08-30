@@ -549,6 +549,7 @@
           "Wayroo.Common": "[2.1.1, )",
           "Wayroo.Payments.DataAccess": "[1.0.0, )",
           "Wayroo.Payments.Eventing": "[1.0.0, )",
+          "Wayroo.Payments.Messages": "[1.0.0, )",
           "Wayroo.Payments.Models": "[1.0.0, )"
         }
       },
@@ -569,6 +570,12 @@
           "Microsoft.Extensions.Configuration.Abstractions": "[10.0.7, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.7, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.7, )",
+          "Wayroo.Common": "[2.1.1, )"
+        }
+      },
+      "wayroo.payments.messages": {
+        "type": "Project",
+        "dependencies": {
           "Wayroo.Common": "[2.1.1, )"
         }
       },

@@ -34,6 +34,7 @@
     <ProjectReference Include="..\..\Wayroo.Payments.Models\Wayroo.Payments.Models\Wayroo.Payments.Models.csproj" />
     <ProjectReference Include="..\..\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess.csproj" />
     <ProjectReference Include="..\..\Wayroo.Payments.Eventing\Wayroo.Payments.Eventing\Wayroo.Payments.Eventing.csproj" />
+    <ProjectReference Include="..\..\Wayroo.Payments.Messages\Wayroo.Payments.Messages\Wayroo.Payments.Messages.csproj" />
   </ItemGroup>
 
 </Project>

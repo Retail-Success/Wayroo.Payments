@@ -35,12 +35,23 @@ public static class IServiceCollectionExtensions
         }
 
         services.TryAddSingleton(new EventBridgePublisherOptions { EventBusArn = eventBusArn });
-        services.TryAddSingleton<IAmazonEventBridge>(_ => new AmazonEventBridgeClient(
-            new AmazonEventBridgeConfig
+        services.TryAddSingleton<IAmazonEventBridge>(_ =>
+        {
+            var eventBridgeConfig = new AmazonEventBridgeConfig
             {
                 RegionEndpoint = Amazon.RegionEndpoint.GetBySystemName(
                     configuration[EventingConfigurationKeys.AwsRegion] ?? "us-east-1"),
-            }));
+            };
+
+            // Allows pointing at a local stub, the way the DynamoDb:ServiceUrl override does for the
+            // data access layer. EventBridge has no local emulator, so an integration test that drives
+            // a real host has no other way to exercise the publish path without reaching AWS.
+            var serviceUrl = configuration.GetSection(EventingConfigurationKeys.EventBridgeSection)["ServiceUrl"];
+            if (!string.IsNullOrEmpty(serviceUrl))
+                eventBridgeConfig.ServiceURL = serviceUrl;
+
+            return new AmazonEventBridgeClient(eventBridgeConfig);
+        });
         services.TryAddSingleton<IIntegrationEventPublisher, EventBridgeIntegrationEventPublisher>();
 
         return services;

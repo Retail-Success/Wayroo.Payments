@@ -137,7 +137,9 @@ internal class ConfigurationRecorderLambda
 
         // The execution role is imported as immutable (see lambdaExecutionRole above), so CDK cannot
         // attach policies here — they must be present on the external "{env}/WorkerRole":
-        //   - dynamodb:PutItem, GetItem, Query on the table
+        //   - dynamodb:UpdateItem, GetItem, Query on the table. UpdateItem, not PutItem: the
+        //     recorder and the account refresh share a record and each writes only the attributes
+        //     it owns, and the store's routing is a third item written the same way
         //   - kms:Decrypt, kms:GenerateDataKey on the table's customer-managed key (writes use the CMK)
         //   - sqs:SendMessage on this queue (re-queue to retry) and its dead-letter queue
         //   - ssm:GetParametersByPath on "/luci/services/utility/OrdersClientOptions/*" — the lambda
@@ -149,8 +151,8 @@ internal class ConfigurationRecorderLambda
         //   - events:PutEvents scoped to the {env}-wayroo-events bus ARN (that bus only —
         //     events:PutEvents cannot be scoped by event source, which is why the intraprocess bus is
         //     separate from the webhook bus). Tracked for the Infrastructure team alongside the bus's
-        //     archive and logging config. Nothing publishes until D5, so a missing grant doesn't break
-        //     any of today's paths.
+        //     archive and logging config. D5 has landed, so this grant is now load-bearing: without it
+        //     every routing announcement fails and the message is dead-lettered.
         //   - outbound network access to the Orders API (resolving store/tenant from the account number)
 
         ConfigureAlarms(

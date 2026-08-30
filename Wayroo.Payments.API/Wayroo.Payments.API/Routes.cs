@@ -26,4 +26,13 @@ internal static class Routes
     private const string BaseRoute = "/api/payments/v{version:apiVersion}";
 
     public const string ConfigurationsRoute = $"{BaseRoute}/stores/{{storeId}}/configurations";
+
+    // Tenant-scoped, unlike the configuration routes: every provider call selects its credentials
+    // by tenant, and a store this service has no record of yet cannot tell us which tenant it
+    // belongs to. Matches the shape of the Orders route being replaced.
+    //
+    // No provider segment: which provider a store transacts through is this service's job to know,
+    // not the caller's, so that a store moving between providers touches no caller. Callers that
+    // genuinely need to reach a specific provider pass it as an optional query parameter.
+    public const string AccountsRoute = $"{BaseRoute}/tenants/{{tenantId}}/stores/{{storeId}}/account";
 }

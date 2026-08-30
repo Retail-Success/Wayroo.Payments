@@ -25,6 +25,18 @@ internal class StackConfig
     // this stack attaches nothing to the bus.
     public required string WayrooEventsBusArn { get; init; }
 
+    // ProPay/ProtectPay endpoints for this environment. These are the environment-wide DEFAULTS, the
+    // same role PropayApiBaseUrisOptions plays in Luci.Orders. A tenant with a per-tenant base-URL
+    // override in Parameter Store overrides them for that tenant alone; the defaults are not in
+    // Parameter Store and are not expected to be.
+    //
+    // They arrive as stack parameters rather than being derived here because `Environment` is a
+    // CfnParameter token at synth time — a C# branch on its value can never match, so each
+    // environment has to supply its own literal through the pipeline variables.
+    public required string PropayRestBaseUri { get; init; }
+    public required string PropayXmlBaseUri { get; init; }
+    public required string ProtectPayRestBaseUri { get; init; }
+
     // ECS Fargate API hosting parameters — used by the Wayroo.Payments.API construct, mirrors the
     // values Notification's stack consumes.
     public required string WayrooECSSecurityGroupId { get; init; }

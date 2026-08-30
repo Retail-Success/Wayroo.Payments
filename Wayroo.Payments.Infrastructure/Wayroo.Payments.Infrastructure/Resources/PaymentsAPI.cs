@@ -28,7 +28,10 @@ internal class PaymentsAPI
         string wayrooECSSecurityGroupId,
         string cloudMapNamespaceId,
         string cloudMapNamespaceArn,
-        PaymentConfigurationTable configurationTable)
+        PaymentConfigurationTable configurationTable,
+        string propayRestBaseUri,
+        string propayXmlBaseUri,
+        string protectPayRestBaseUri)
     {
         // Existing shared ECS cluster — provisioned by infra; we just attach to it.
         var ecsCluster = Cluster.FromClusterAttributes(scope, id: "EcsCluster", new ClusterAttributes
@@ -41,7 +44,12 @@ internal class PaymentsAPI
         //
         // The task role MUST already exist with:
         //   - dynamodb:GetItem, dynamodb:Query on the {env}-PaymentConfiguration table
+        //   - dynamodb:UpdateItem on the same table — both writers merge per attribute rather than
+        //     putting whole items, so the account refresh needs UpdateItem, not PutItem
         //   - kms:Decrypt on the table's customer-managed key (if the table uses one)
+        //   - ssm:GetParametersByPath on the shared ProPay vendor path (PropaySecretsPath below) and
+        //     kms:Decrypt on the key those SecureString parameters are encrypted with. Without these
+        //     the account endpoints fail at startup, because that configuration source is required.
         //   - cloudwatch:PutMetricData (for OpenTelemetry metrics export)
         //   - xray:PutTraceSegments, xray:PutTelemetryRecords (X-Ray sidecar)
         var taskRole = Role.FromRoleName(
@@ -113,6 +121,19 @@ internal class PaymentsAPI
                 ["Environment"] = environment,
                 ["AwsRegion"] = "us-east-1",
                 ["PaymentConfigurationTableName"] = configurationTable.Resource.TableName,
+                // Parameter Store path holding the per-tenant ProPay credentials. Points at the vendor
+                // path Luci.Orders already reads rather than a copy under /wayroo/api/payments: the
+                // same credential in two places is how two services end up on different halves of a
+                // rotation. A tenant's optional per-tenant base-URL override lives here too, and wins
+                // over the environment defaults below for that tenant.
+                ["PropaySecretsPath"] = $"/luci/{environment}/vendors/propay",
+                // The environment-wide ProPay/ProtectPay endpoints — the same role
+                // PropayApiBaseUrisOptions plays in Luci.Orders, and NOT something Parameter Store
+                // holds. They come in as stack parameters because `environment` is a token here, so
+                // each environment must supply its own literal through the pipeline variables.
+                ["PropayApiBaseUrisOptions:PropayRest"] = propayRestBaseUri,
+                ["PropayApiBaseUrisOptions:PropayXml"] = propayXmlBaseUri,
+                ["PropayApiBaseUrisOptions:ProtectPayRest"] = protectPayRestBaseUri,
                 ["OpenTelemetry:ServiceName"] = serviceName,
                 ["OpenTelemetry:ServiceVersion"] = "1.0.0",
                 ["OpenTelemetry:ExporterOtlpEndpoint"] = $"http://localhost:{xrayContainer.PortMappings.Single().ContainerPort}",

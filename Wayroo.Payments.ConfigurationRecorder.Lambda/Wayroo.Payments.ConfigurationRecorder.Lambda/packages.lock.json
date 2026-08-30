@@ -480,6 +480,12 @@
           "Wayroo.Common": "[2.1.1, )"
         }
       },
+      "wayroo.payments.messages": {
+        "type": "Project",
+        "dependencies": {
+          "Wayroo.Common": "[2.1.1, )"
+        }
+      },
       "wayroo.payments.models": {
         "type": "Project"
       }

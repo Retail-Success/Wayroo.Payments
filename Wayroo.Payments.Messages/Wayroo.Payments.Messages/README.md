@@ -30,8 +30,9 @@ Everything lives in the `Wayroo.Payments.Messages` namespace.
 | `DisputeOpened` | A cardholder disputes a payment |
 | `DisputeStatusChanged` | An open dispute is defended, accepted, won, lost, expired or withdrawn |
 | `TransferReturned` | A payout the merchant's bank rejected, or a funding transfer pulled back |
+| `StoreProviderConfigChanged` | A store's payment-provider configuration changes — which provider it acquires through, or where it sits in the migration between providers |
 
-All six are **store-scoped** (`IStoreScopedEvent`) and publish under the
+All seven are **store-scoped** (`IStoreScopedEvent`) and publish under the
 `rs.payments` source, so they route as `payments.PayoutCompleted.v1` and so on.
 The tenant and store live in `Metadata.Scope`, not on the payload.
 
