@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Wayroo.Payments.DataAccess.Extensions;
 using Wayroo.Payments.Models;
 
@@ -21,9 +22,13 @@ namespace Wayroo.Payments.DataAccess;
 /// </remarks>
 public class PaymentConfigurationRepository(
     IAmazonDynamoDB dynamoDbClient,
-    DynamoDbClientOptions clientOptions,
+    IOptions<DynamoDbClientOptions> clientOptions,
     ILogger<PaymentConfigurationRepository> logger) : IPaymentConfigurationRepository
 {
+    // Captured once. IOptions<T> is a fixed snapshot anyway, and this repository is a singleton with
+    // no reload semantics, so re-reading .Value on every request would only add noise.
+    private readonly string _tableName = clientOptions.Value.PaymentConfigurationTableName;
+
     public async Task<PaymentProviderConfiguration> UpsertConfiguration(
         PaymentProviderConfiguration configuration,
         CancellationToken cancellationToken)
@@ -35,7 +40,7 @@ public class PaymentConfigurationRepository(
             "Upserting payment configuration for store {StoreId} provider {ProviderId} into {TableName}",
             configuration.StoreId,
             configuration.ProviderId,
-            clientOptions.PaymentConfigurationTableName);
+            _tableName);
 
         return await ApplyUpdate(configuration, update, now, cancellationToken);
     }
@@ -53,7 +58,7 @@ public class PaymentConfigurationRepository(
             configuration.ProviderId,
             configuration.StoreId,
             configuration.AccountStatus,
-            clientOptions.PaymentConfigurationTableName);
+            _tableName);
 
         return await ApplyUpdate(configuration, update, now, cancellationToken);
     }
@@ -62,7 +67,7 @@ public class PaymentConfigurationRepository(
     {
         var request = new GetItemRequest
         {
-            TableName = clientOptions.PaymentConfigurationTableName,
+            TableName = _tableName,
             Key = PaymentConfigurationSchemaProvider.GetRoutingIdentifiers(storeId),
         };
 
@@ -82,7 +87,7 @@ public class PaymentConfigurationRepository(
 
         var request = new UpdateItemRequest
         {
-            TableName = clientOptions.PaymentConfigurationTableName,
+            TableName = _tableName,
             Key = PaymentConfigurationSchemaProvider.GetRoutingIdentifiers(routing.StoreId),
             UpdateExpression = update.UpdateExpression,
             ExpressionAttributeNames = update.ExpressionAttributeNames,
@@ -99,7 +104,7 @@ public class PaymentConfigurationRepository(
             routing.StoreId,
             routing.AcquiringProviderId,
             routing.MigrationState,
-            clientOptions.PaymentConfigurationTableName);
+            _tableName);
 
         var response = await dynamoDbClient.UpdateItemAsync(request, cancellationToken);
 
@@ -130,7 +135,7 @@ public class PaymentConfigurationRepository(
     {
         var request = new GetItemRequest
         {
-            TableName = clientOptions.PaymentConfigurationTableName,
+            TableName = _tableName,
             Key = PaymentConfigurationSchemaProvider.GetRecordIdentifiers(storeId, providerId),
         };
 
@@ -152,7 +157,7 @@ public class PaymentConfigurationRepository(
         {
             var request = new QueryRequest
             {
-                TableName = clientOptions.PaymentConfigurationTableName,
+                TableName = _tableName,
                 KeyConditionExpression = "#storeId = :storeId",
                 ExpressionAttributeNames = new Dictionary<string, string>
                 {
@@ -194,7 +199,7 @@ public class PaymentConfigurationRepository(
     {
         var request = new UpdateItemRequest
         {
-            TableName = clientOptions.PaymentConfigurationTableName,
+            TableName = _tableName,
             Key = PaymentConfigurationSchemaProvider.GetRecordIdentifiers(
                 configuration.StoreId,
                 configuration.ProviderId),

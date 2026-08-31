@@ -9,6 +9,7 @@ using RetailSuccess.PaymentGateway.Propay.Models;
 using RetailSuccess.PaymentGateway.Propay.Requests;
 using Wayroo.Payments.BusinessLogic.Gateways;
 using Wayroo.Payments.BusinessLogic.Gateways.Propay;
+using Wayroo.Payments.BusinessLogic.UnitTests.TestDoubles;
 using Wayroo.Payments.Models;
 using PropayAccountDetail = RetailSuccess.PaymentGateway.Propay.Responses.GetAccountDetailsResponse;
 using PropayBalance = RetailSuccess.PaymentGateway.Propay.Responses.GetAccountBalanceResponse;
@@ -27,6 +28,7 @@ public class PropayAccountGatewayTests
 
     private readonly Mock<IPropayClient> _propayClient = new(MockBehavior.Strict);
     private readonly Mock<IPaymentConfigurationRepository> _repository = new();
+    private readonly RecordingLogger<PropayAccountGateway> _logger = new();
     private readonly PropayAccountGateway _gateway;
 
     public PropayAccountGatewayTests()
@@ -34,7 +36,7 @@ public class PropayAccountGatewayTests
         _gateway = new PropayAccountGateway(
             _propayClient.Object,
             _repository.Object,
-            new Mock<ILogger<PropayAccountGateway>>().Object);
+            _logger);
 
         _repository
             .Setup(r => r.UpsertAccountDetails(
@@ -465,5 +467,36 @@ public class PropayAccountGatewayTests
         _repository.Verify(
             r => r.UpsertAccountDetails(It.IsAny<PaymentProviderConfiguration>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task GetBalance_EmitsTheStatusBackfilledSignal_WhenTheStoreHasNotBeenBackfilled()
+    {
+        // The CloudWatch alarm {env}-WayrooPayments-API-GetBalance-StatusBackfilled counts this
+        // property. It is what tells us stores are still costing a second provider call per balance
+        // read, and it should trend to zero as the backfill lands.
+        GivenRecordedConfiguration(Recorded(status: null));
+        GivenBalance(Balance());
+        GivenAccountDetail(Detail("ReadyToProcess"));
+
+        await _gateway.GetBalance(TenantId, StoreId, CancellationToken.None);
+
+        var entry = _logger.EntryForSignal(PaymentsLogSignals.GetBalanceStatusBackfilled);
+        entry.Level.Should().Be(LogLevel.Information);
+        entry.Properties["StoreId"].Should().Be(StoreId);
+        entry.Properties["TenantId"].Should().Be(TenantId);
+        entry.Properties["ProviderId"].Should().Be("propay");
+    }
+
+    [Fact]
+    public async Task GetBalance_DoesNotEmitTheStatusBackfilledSignal_WhenTheStandingIsAlreadyRecorded()
+    {
+        // The healed case, which is what the alarm's threshold assumes becomes the norm.
+        GivenRecordedConfiguration(Recorded(PaymentAccountStatus.ReadyToProcess));
+        GivenBalance(Balance());
+
+        await _gateway.GetBalance(TenantId, StoreId, CancellationToken.None);
+
+        _logger.HasSignal(PaymentsLogSignals.GetBalanceStatusBackfilled).Should().BeFalse();
     }
 }

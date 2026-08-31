@@ -3,6 +3,7 @@ using Amazon.EventBridge;
 using Amazon.EventBridge.Model;
 using AwesomeAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 using Wayroo.Common.Exceptions;
 using Wayroo.Common.Models.Events;
@@ -18,7 +19,7 @@ public class EventBridgeIntegrationEventPublisherTests
 
     private EventBridgeIntegrationEventPublisher CreatePublisher() => new(
         _eventBridge.Object,
-        new EventBridgePublisherOptions { EventBusArn = EventBusArn },
+        Options.Create(new EventBridgePublisherOptions { EventBusArn = EventBusArn }),
         NullLogger<EventBridgeIntegrationEventPublisher>.Instance);
 
     private static IntegrationEnvelope<TestStoreEvent> Envelope() => IntegrationEnvelope.ForStore(
@@ -144,7 +145,7 @@ public class EventBridgeIntegrationEventPublisherTests
     {
         var act = () => new EventBridgeIntegrationEventPublisher(
             _eventBridge.Object,
-            new EventBridgePublisherOptions { EventBusArn = "  " },
+            Options.Create(new EventBridgePublisherOptions { EventBusArn = "  " }),
             NullLogger<EventBridgeIntegrationEventPublisher>.Instance);
 
         // An empty value is not an error to EventBridge — it silently means "default bus".

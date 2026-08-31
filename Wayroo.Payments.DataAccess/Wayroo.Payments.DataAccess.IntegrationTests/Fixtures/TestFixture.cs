@@ -4,6 +4,7 @@ using Amazon.Runtime;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Wayroo.Payments.DataAccess.IntegrationTests.Fixtures;
 
@@ -141,7 +142,7 @@ public class TestFixture : IDisposable
     }
 
     public PaymentConfigurationRepository GetRepository(IAmazonDynamoDB client, DynamoDbClientOptions options)
-        => new(client, options, NullLogger<PaymentConfigurationRepository>.Instance);
+        => new(client, Options.Create(options), NullLogger<PaymentConfigurationRepository>.Instance);
 
     public void Dispose()
     {

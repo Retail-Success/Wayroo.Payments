@@ -1,11 +1,15 @@
 using Amazon.CDK;
 using Amazon.CDK.AWS.ApplicationAutoScaling;
+using Amazon.CDK.AWS.CloudWatch;
+using Amazon.CDK.AWS.CloudWatch.Actions;
 using Amazon.CDK.AWS.EC2;
 using Amazon.CDK.AWS.ECS;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.Logs;
 using Amazon.CDK.AWS.ServiceDiscovery;
+using Amazon.CDK.AWS.SNS;
 using Constructs;
+using Wayroo.Payments.Models;
 
 namespace Wayroo.Payments.Infrastructure.Resources;
 
@@ -21,6 +25,48 @@ internal class PaymentsAPI
     private const string ECRAccountId = "447351046706";
     private const string ECRRegion = "us-east-1";
 
+    // Mirror Function.ServiceName / ComponentName in the recorder lambda so alarm names across this
+    // service read the same way: {env}-WayrooPayments-{Component}-{What}. Hardcoded for the same
+    // reason the environment variable keys below are — the API is net8 and this project is net10.
+    private const string ServiceName = "WayrooPayments";
+    private const string ComponentName = "API";
+
+    /// <summary>
+    /// Namespace for metrics extracted from this service's ECS logs. Parallels the <c>RS/lambda/</c>
+    /// namespace every lambda log metric in the Wayroo services publishes to; this is the first ECS
+    /// one, hence a new namespace rather than reusing that.
+    /// </summary>
+    private const string LogMetricNamespace = "RS/ecs/";
+
+    /// <summary>
+    /// How many occurrences of a signal within <see cref="SignalPeriodMinutes"/> are tolerated before
+    /// the alarm fires, and for how many consecutive periods.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Both of these signals are ordinary in ones and twos</b> — that is why they are logged at
+    /// Information and why the threshold is not zero the way the lambda's error alarms are. A store
+    /// that never onboarded genuinely has no account, and a store the backfill has not reached
+    /// genuinely has no recorded standing. Alarming on a single occurrence would page someone
+    /// throughout the backfill rollout and teach them to ignore it.
+    /// </para>
+    /// <para>
+    /// What is <i>not</i> ordinary is a sustained rate. These values say: more than
+    /// <see cref="SignalThreshold"/> in a <see cref="SignalPeriodMinutes"/>-minute window, for
+    /// <see cref="SignalEvaluationPeriods"/> consecutive windows. Starting values, chosen to sit above
+    /// incidental traffic and below a genuine flood, with no production rate to calibrate against yet
+    /// — revisit once the backfill has run and the steady-state rate is known. The metrics are
+    /// published either way, so the history needed to tune them accumulates from the first deploy.
+    /// </para>
+    /// </remarks>
+    private const int SignalThreshold = 10;
+
+    /// <inheritdoc cref="SignalThreshold" />
+    private const int SignalPeriodMinutes = 5;
+
+    /// <inheritdoc cref="SignalThreshold" />
+    private const int SignalEvaluationPeriods = 2;
+
     public PaymentsAPI(
         Construct scope,
         string environment,
@@ -29,6 +75,7 @@ internal class PaymentsAPI
         string cloudMapNamespaceId,
         string cloudMapNamespaceArn,
         PaymentConfigurationTable configurationTable,
+        ITopic alarmTopic,
         string propayRestBaseUri,
         string propayXmlBaseUri,
         string protectPayRestBaseUri)
@@ -219,5 +266,115 @@ internal class PaymentsAPI
             ScaleInCooldown = Duration.Seconds(60),
             ScaleOutCooldown = Duration.Seconds(30),
         });
+
+        AddPaymentSignalAlarms(scope, environment, logGroup, alarmTopic);
+    }
+
+    /// <summary>
+    /// Counts the two account-shaped log signals this service raises and alarms on a sustained rate of
+    /// either.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both alarms match on <c>$.Properties.PaymentsSignal</c> rather than on message text, so
+    /// rewording a log line cannot silently break them. See
+    /// <see cref="PaymentsLogSignals"/>, which both sides share.
+    /// </para>
+    /// <para>
+    /// <b>A renamed signal fails silently in the safe-looking direction.</b> The filter would stop
+    /// matching, the metric would report no data, and <c>TreatMissingData.NOT_BREACHING</c> reads no
+    /// data as healthy — so the alarm sits green rather than going to INSUFFICIENT_DATA. That is the
+    /// right setting here (an idle service legitimately emits neither signal) but it means these
+    /// alarms cannot tell "nothing is wrong" from "nothing is being measured". If that distinction
+    /// starts mattering, alarm on the ECS service's request count instead of on these.
+    /// </para>
+    /// </remarks>
+    private static void AddPaymentSignalAlarms(
+        Construct scope,
+        string environment,
+        LogGroup logGroup,
+        ITopic alarmTopic)
+    {
+        // An account refresh that finds nothing is a 200 with accountExists: false, and one is normal.
+        // A stream of them is not: it is the shape of a backfill that has stopped supplying
+        // providerAccountRef, or one pointed at a tenant whose stores this service holds no references
+        // for — both of which otherwise look like a clean run, because every store is "successfully"
+        // recorded as having no account.
+        AddSignalAlarm(
+            scope,
+            environment,
+            logGroup,
+            alarmTopic,
+            signal: PaymentsLogSignals.RefreshAccountNoAccount,
+            idPrefix: "PaymentsAPIRefreshAccountNoAccount",
+            alarmNameSuffix: "RefreshAccount-NoAccount",
+            alarmDescription:
+                "Account refreshes are repeatedly finding no merchant account. Expected in ones and "
+                + "twos for stores that never onboarded; a sustained rate points at a backfill that "
+                + "is not supplying the provider account reference, or is sweeping the wrong tenant.");
+
+        // A balance read that has to fetch the store's standing costs a second provider round trip and
+        // then records it, so the store heals and the next read is one call again. That means this
+        // should trend to zero as the backfill lands. A rate that does not fall means stores are not
+        // healing, and the usual cause is the recording write failing rather than anything about the
+        // read — which is logged as an Error separately, from PropayAccountGateway.
+        AddSignalAlarm(
+            scope,
+            environment,
+            logGroup,
+            alarmTopic,
+            signal: PaymentsLogSignals.GetBalanceStatusBackfilled,
+            idPrefix: "PaymentsAPIGetBalanceStatusBackfilled",
+            alarmNameSuffix: "GetBalance-StatusBackfilled",
+            alarmDescription:
+                "Balance reads are repeatedly having to fetch the account standing from the provider. "
+                + "Each store should need this at most once and then stay healed, so a sustained rate "
+                + "means the recording write is not sticking.");
+    }
+
+    private static void AddSignalAlarm(
+        Construct scope,
+        string environment,
+        LogGroup logGroup,
+        ITopic alarmTopic,
+        string signal,
+        string idPrefix,
+        string alarmNameSuffix,
+        string alarmDescription)
+    {
+        logGroup
+            .AddMetricFilter(id: $"{idPrefix}Metric", new MetricFilterOptions
+            {
+                FilterName = signal,
+                // Serilog's JSON formatter puts message template properties under "Properties", which
+                // is why this is not a bare $.PaymentsSignal. The ECS awslogs driver forwards the
+                // formatted line unchanged, so the log event is the JSON document.
+                FilterPattern = FilterPattern.StringValue(
+                    $"$.Properties.{PaymentsLogSignals.PropertyName}",
+                    "=",
+                    signal),
+                Unit = Unit.COUNT,
+                MetricName = $"{environment}-{ServiceName}-{ComponentName}-{signal}",
+                MetricNamespace = LogMetricNamespace,
+            })
+            .Metric(new MetricOptions
+            {
+                Statistic = Stats.SUM,
+                Period = Duration.Minutes(SignalPeriodMinutes),
+            })
+            .CreateAlarm(scope, id: $"{idPrefix}Alarm", new CreateAlarmOptions
+            {
+                AlarmName = $"{environment}-{ServiceName}-{ComponentName}-{alarmNameSuffix}",
+                AlarmDescription = alarmDescription,
+                ComparisonOperator = ComparisonOperator.GREATER_THAN_THRESHOLD,
+                Threshold = SignalThreshold,
+                // Both periods must breach, so a single burst — one backfill batch, one support sweep —
+                // does not page anyone. Sustained is the signal.
+                EvaluationPeriods = SignalEvaluationPeriods,
+                DatapointsToAlarm = SignalEvaluationPeriods,
+                TreatMissingData = TreatMissingData.NOT_BREACHING,
+                ActionsEnabled = true,
+            })
+            .AddAlarmAction(new SnsAction(alarmTopic));
     }
 }

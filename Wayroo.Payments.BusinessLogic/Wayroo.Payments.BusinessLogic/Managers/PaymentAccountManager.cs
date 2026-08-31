@@ -85,8 +85,13 @@ public class PaymentAccountManager(
             // A backfill sweeping every store expects to meet stores that never onboarded, or whose
             // account reference it does not know, and should be able to record that and move on rather
             // than treat it as a failed item.
+            //
+            // Carries PaymentsLogSignals.RefreshAccountNoAccount so the CloudWatch metric filter in
+            // the PaymentsAPI construct can count these without depending on this sentence's wording.
+            // Deliberately still Information: one of these is ordinary, and only the rate is alarming.
             logger.LogInformation(
-                "No {ProviderId} account exists for store {StoreId} (tenant {TenantId}); nothing recorded.",
+                "{PaymentsSignal}: no {ProviderId} account exists for store {StoreId} (tenant {TenantId}); nothing recorded.",
+                PaymentsLogSignals.RefreshAccountNoAccount,
                 gateway.ProviderId,
                 storeId,
                 tenantId);

@@ -13,6 +13,14 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+    <!-- 10.0.7, matching the pins above rather than the 10.0.11 line BusinessLogic uses: the 10.0.11
+         variants of these demand Microsoft.Extensions.Configuration.Abstractions 10.0.11, which would
+         make this project's own direct 10.0.7 reference a package downgrade (NU1605, an error here). -->
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.7" />
+    <!-- Separate package: ValidateOnStart ships in Microsoft.Extensions.Options, ValidateDataAnnotations
+         does not. -->
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.7" />
   </ItemGroup>
 
   <ItemGroup>

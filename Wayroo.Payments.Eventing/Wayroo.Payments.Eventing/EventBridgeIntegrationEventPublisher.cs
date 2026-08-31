@@ -1,6 +1,7 @@
 using Amazon.EventBridge;
 using Amazon.EventBridge.Model;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Wayroo.Common.Exceptions;
 using Wayroo.Common.Models.Events;
 
@@ -43,18 +44,24 @@ public sealed class EventBridgeIntegrationEventPublisher : IIntegrationEventPubl
 
     public EventBridgeIntegrationEventPublisher(
         IAmazonEventBridge eventBridge,
-        EventBridgePublisherOptions options,
+        IOptions<EventBridgePublisherOptions> options,
         ILogger<EventBridgeIntegrationEventPublisher> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
         _eventBridge = eventBridge ?? throw new ArgumentNullException(nameof(eventBridge));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _eventBusArn = string.IsNullOrWhiteSpace(options.EventBusArn)
+
+        // Kept even though the options are validated on startup: this is the guard that makes the
+        // failure impossible rather than merely unlikely, and publishing to a blank ARN is the one
+        // mistake here that is completely silent — EventBridge resolves it to the account's default
+        // bus and reports success.
+        var eventBusArn = options.Value.EventBusArn;
+        _eventBusArn = string.IsNullOrWhiteSpace(eventBusArn)
             ? throw new ArgumentException(
                 $"{nameof(EventBridgePublisherOptions)}.{nameof(EventBridgePublisherOptions.EventBusArn)} " +
                 "must be supplied — an empty value resolves to the account's default bus.",
                 nameof(options))
-            : options.EventBusArn;
+            : eventBusArn;
     }
 
     /// <inheritdoc />

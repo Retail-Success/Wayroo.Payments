@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Wayroo.Payments.BusinessLogic.Gateways;
 using Wayroo.Payments.BusinessLogic.Gateways.Propay;
 using Wayroo.Payments.BusinessLogic.Managers;
@@ -26,12 +27,13 @@ public static class IServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.Configure<PaymentGatewayOptions>(options =>
-        {
-            var configured = configuration[PaymentGatewayConfigurationKeys.DefaultProviderId];
-            if (!string.IsNullOrWhiteSpace(configured))
-                options.DefaultProviderId = configured;
-        });
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        // Bound from the root, matching PaymentGatewayConfigurationKeys.DefaultProviderId. No
+        // validation: a blank value is legal and means "use the platform default", an invariant
+        // PaymentGatewayOptions.DefaultProviderId applies itself so it holds for every caller and not
+        // just for this one binding path.
+        services.AddOptions<PaymentGatewayOptions>().Bind(configuration);
 
         services.AddPropayAccountGateway(configuration);
 

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Wayroo.Payments.BusinessLogic.Gateways;
 using Wayroo.Payments.BusinessLogic.Managers;
+using Wayroo.Payments.BusinessLogic.UnitTests.TestDoubles;
 using Wayroo.Payments.Models;
 
 namespace Wayroo.Payments.BusinessLogic.UnitTests.Managers;
@@ -19,6 +20,7 @@ public class PaymentAccountManagerTests
 
     private readonly Mock<IPaymentConfigurationRepository> _repository = new();
     private readonly Dictionary<string, Mock<IPaymentAccountGateway>> _gateways = [];
+    private readonly RecordingLogger<PaymentAccountManager> _logger = new();
     private string _defaultProviderId = "propay";
 
     private Mock<IPaymentAccountGateway> Register(string providerId)
@@ -52,7 +54,7 @@ public class PaymentAccountManagerTests
         _repository.Object,
         new PaymentGatewayRegistry(_gateways.Values.Select(g => g.Object)),
         Options.Create(new PaymentGatewayOptions { DefaultProviderId = _defaultProviderId }),
-        new Mock<ILogger<PaymentAccountManager>>().Object);
+        _logger);
 
     private Task<PaymentAccountBalance> GetBalance(string? providerId = null)
         => Manager().GetBalance(TenantId, StoreId, providerId, CancellationToken.None);
@@ -240,5 +242,42 @@ public class PaymentAccountManagerTests
         propay.Verify(
             g => g.RefreshAccountDetails(TenantId, StoreId, "718040110898", It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task RefreshAccount_EmitsTheNoAccountSignal_WhenTheGatewayFindsNothing()
+    {
+        // The CloudWatch alarm {env}-WayrooPayments-API-RefreshAccount-NoAccount counts this property.
+        // Drop it, or rename the constant on one side only, and the metric filter stops matching — at
+        // which point the alarm reports no data and reads as healthy rather than as broken.
+        var gateway = Register("propay");
+        gateway
+            .Setup(g => g.RefreshAccountDetails(
+                It.IsAny<long>(), It.IsAny<long>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PaymentAccountDetails?)null);
+        GivenRouting(null);
+
+        var details = await Manager().RefreshAccount(TenantId, StoreId, null, null, CancellationToken.None);
+
+        details.AccountExists.Should().BeFalse();
+
+        var entry = _logger.EntryForSignal(PaymentsLogSignals.RefreshAccountNoAccount);
+        // Information, not Warning: one of these is ordinary and only the rate is alarming, which is
+        // why the alarm has a threshold rather than firing on any occurrence.
+        entry.Level.Should().Be(LogLevel.Information);
+        entry.Properties["StoreId"].Should().Be(StoreId);
+        entry.Properties["TenantId"].Should().Be(TenantId);
+        entry.Properties["ProviderId"].Should().Be("propay");
+    }
+
+    [Fact]
+    public async Task RefreshAccount_DoesNotEmitTheNoAccountSignal_WhenAnAccountIsFound()
+    {
+        Register("propay");
+        GivenRouting(null);
+
+        await Manager().RefreshAccount(TenantId, StoreId, null, null, CancellationToken.None);
+
+        _logger.HasSignal(PaymentsLogSignals.RefreshAccountNoAccount).Should().BeFalse();
     }
 }

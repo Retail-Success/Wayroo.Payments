@@ -3,6 +3,7 @@ using Amazon.Lambda.SQSEvents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Wayroo.Payments.ConfigurationRecorder.Lambda.Gateways.Propay;
 using Wayroo.Payments.DataAccess.Extensions;
@@ -118,9 +119,31 @@ public class Function
         services.AddPaymentConfigurationRecorder(configuration);
         services.AddPropayGateway(configuration);
 
-        return services.BuildServiceProvider();
+        var serviceProvider = services.BuildServiceProvider();
+
+        // The tiers above declare their settings as options classes and validate them with
+        // ValidateOnStart(). That only registers an IStartupValidator — for Wayroo.Payments.API the
+        // Hosting layer resolves and runs it during host start, but there is no host here, so without
+        // this line every one of those validators would be dead code in the process that actually runs
+        // the recorder.
+        //
+        // Before resolving anything, so a misconfigured lambda fails with one OptionsValidationException
+        // naming every unusable setting rather than part-way through building the object graph.
+        // GetService, not GetRequiredService: a host that registered no validators is fine.
+        serviceProvider.GetService<IStartupValidator>()?.Validate();
+
+        return serviceProvider;
     }
 
+    /// <summary>
+    /// Fails cold start when a required configuration key is missing entirely.
+    /// </summary>
+    /// <remarks>
+    /// Overlaps with the options validators run above, and both are worth keeping: this answers "is the
+    /// key present at all" across every key the lambda needs — including
+    /// <see cref="ParameterStoreKeys.OrdersApiBaseUrl"/>, which no options class covers — and names all
+    /// the missing ones in one message. The validators answer the narrower "is the bound value usable".
+    /// </remarks>
     private static void ValidateRequiredConfiguration(IConfiguration configuration)
     {
         var missing = EnvironmentVariableKeys.Keys()

@@ -75,6 +75,7 @@ internal class ResourceStack : Stack
                 cloudMapNamespaceId: config.CloudMapNamespaceId,
                 cloudMapNamespaceArn: config.CloudMapNamespaceArn,
                 configurationTable: configurationTable,
+                alarmTopic: alarmTopic,
                 propayRestBaseUri: config.PropayRestBaseUri,
                 propayXmlBaseUri: config.PropayXmlBaseUri,
                 protectPayRestBaseUri: config.ProtectPayRestBaseUri),

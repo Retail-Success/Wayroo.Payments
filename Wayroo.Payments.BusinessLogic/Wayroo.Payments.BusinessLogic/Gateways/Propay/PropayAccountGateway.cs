@@ -75,6 +75,18 @@ public class PropayAccountGateway(
 
         if (status is null)
         {
+            // Carries PaymentsLogSignals.GetBalanceStatusBackfilled so the CloudWatch metric filter in
+            // the PaymentsAPI construct can count how often a balance read still costs a second
+            // provider call. Expected once per store until the backfill reaches it, then never again —
+            // so a sustained rate means stores are not healing, i.e. the recording write is failing.
+            // Information, not Warning: a single one of these is the designed behaviour.
+            logger.LogInformation(
+                "{PaymentsSignal}: no recorded {ProviderId} account standing for store {StoreId} (tenant {TenantId}); reading it from the provider.",
+                PaymentsLogSignals.GetBalanceStatusBackfilled,
+                ProviderId,
+                storeId,
+                tenantId);
+
             // The balance is already in hand, and it is what the caller came for. Backfilling the
             // standing is a second, independent provider round trip on top of it, so a failure there
             // is logged and reported rather than thrown: a merchant should still see their money when
