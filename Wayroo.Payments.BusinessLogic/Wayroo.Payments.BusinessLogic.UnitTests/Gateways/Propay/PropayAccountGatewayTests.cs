@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Net.Http;
 using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -176,6 +178,7 @@ public class PropayAccountGatewayTests
         // Never null when the account exists: Luci.Integrations.Api casts this unconditionally.
         balance!.Status.Should().Be(PaymentAccountStatus.ReadyToProcess);
         balance.CanProcessPayments.Should().BeTrue();
+        balance.StatusIsProvisional.Should().BeFalse();
 
         // And the store heals, so the next read is a single provider call again.
         _repository.Verify(
@@ -183,6 +186,110 @@ public class PropayAccountGatewayTests
                 It.Is<PaymentProviderConfiguration>(c => c.AccountStatus == PaymentAccountStatus.ReadyToProcess),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBalance_StillServesTheBalance_WhenTheProviderRefusesTheAccountDetail()
+    {
+        // The balance call succeeded; only the second, secondary read failed. Losing the whole
+        // response over it would take the merchant's balance off the screen for a value the caller
+        // may not even use.
+        GivenRecordedConfiguration(Recorded(status: null));
+        GivenBalance(Balance(availableCents: 150_050));
+        _propayClient
+            .Setup(c => c.GetAccountDetails(TenantId, It.IsAny<GetAccountDetailsRequest>()))
+            .ReturnsAsync(new PropayResult<PropayAccountDetail>.Failure(
+                new PropayStatus("24", "Invalid Source Email")));
+
+        var balance = await _gateway.GetBalance(TenantId, StoreId, CancellationToken.None);
+
+        balance!.AccountExists.Should().BeTrue();
+        balance.AvailableBalance!.Amount.Should().Be(1500.50m);
+
+        // Still non-null, but flagged as a placeholder and failing closed on the capability.
+        balance.Status.Should().Be(PaymentAccountStatus.Pending);
+        balance.StatusIsProvisional.Should().BeTrue();
+        balance.CanProcessPayments.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetBalance_StillServesTheBalance_WhenTheAccountDetailReadThrows()
+    {
+        GivenRecordedConfiguration(Recorded(status: null));
+        GivenBalance(Balance());
+        _propayClient
+            .Setup(c => c.GetAccountDetails(TenantId, It.IsAny<GetAccountDetailsRequest>()))
+            .ThrowsAsync(new HttpRequestException("ProPay's XML endpoint is unreachable."));
+
+        var balance = await _gateway.GetBalance(TenantId, StoreId, CancellationToken.None);
+
+        balance!.AccountExists.Should().BeTrue();
+        balance.Status.Should().Be(PaymentAccountStatus.Pending);
+        balance.StatusIsProvisional.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetBalance_ServesTheRealStatus_WhenOnlyRecordingItFails()
+    {
+        // The standing was read successfully, so serve it — the store just does not heal this time.
+        GivenRecordedConfiguration(Recorded(status: null));
+        GivenBalance(Balance());
+        GivenAccountDetail(Detail("ReadyToProcess"));
+        _repository
+            .Setup(r => r.UpsertAccountDetails(
+                It.IsAny<PaymentProviderConfiguration>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DynamoDB is having a moment."));
+
+        var balance = await _gateway.GetBalance(TenantId, StoreId, CancellationToken.None);
+
+        balance!.Status.Should().Be(PaymentAccountStatus.ReadyToProcess);
+        balance.CanProcessPayments.Should().BeTrue();
+        balance.StatusIsProvisional.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetBalance_DoesNotAbsorbTheFailure_WhenTheCallerCancelled()
+    {
+        // Nothing to be robust for: the response is going nowhere, and swallowing this would hide a
+        // cancelled request as a store with an unknown standing.
+        using var cancellation = new CancellationTokenSource();
+        GivenRecordedConfiguration(Recorded(status: null));
+        GivenBalance(Balance());
+        _propayClient
+            .Setup(c => c.GetAccountDetails(TenantId, It.IsAny<GetAccountDetailsRequest>()))
+            .Returns(async () =>
+            {
+                await cancellation.CancelAsync();
+                cancellation.Token.ThrowIfCancellationRequested();
+                throw new UnreachableException();
+            });
+
+        var act = async () => await _gateway.GetBalance(TenantId, StoreId, cancellation.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task RefreshAccountDetails_StillFails_WhenRecordingFails()
+    {
+        // The balance path tolerates a failed write; this one must not. Recording is the whole point
+        // of the call, and a backfill that is told "recorded" without a write would skip the store.
+        GivenRecordedConfiguration(Recorded(status: null));
+        GivenAccountDetail(Detail("ReadyToProcess"));
+        _repository
+            .Setup(r => r.UpsertAccountDetails(
+                It.IsAny<PaymentProviderConfiguration>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("DynamoDB is having a moment."));
+
+        var act = async () => await _gateway.RefreshAccountDetails(
+            TenantId,
+            StoreId,
+            null,
+            CancellationToken.None);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]

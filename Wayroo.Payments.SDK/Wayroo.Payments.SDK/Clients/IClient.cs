@@ -40,7 +40,9 @@ public interface IClient
     /// answered with <c>200</c> and <see cref="PaymentAccountBalance.AccountExists"/> <c>false</c>,
     /// never a 404, so callers branch on the flag rather than catching. Balances are in major units
     /// (dollars, not cents) and <see cref="PaymentAccountBalance.Status"/> is never null when the
-    /// account exists.
+    /// account exists — but check <see cref="PaymentAccountBalance.StatusIsProvisional"/> before
+    /// acting on it, which flags the case where the balance came back but the standing behind it
+    /// could not be read.
     /// </remarks>
     /// <param name="tenantId">The tenant that owns the store; selects the provider credentials used.</param>
     /// <param name="storeId">The store whose account to read.</param>

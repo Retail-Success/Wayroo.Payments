@@ -71,17 +71,26 @@ public class PropayAccountGateway(
         var recorded = await repository.GetConfiguration(storeId, ProviderId, cancellationToken);
         var status = recorded?.AccountStatus;
         var canProcessPayments = status == PaymentAccountStatus.ReadyToProcess;
+        var statusIsProvisional = false;
 
         if (status is null)
         {
-            var refreshed = await ReadAndRecordAccountDetails(
+            // The balance is already in hand, and it is what the caller came for. Backfilling the
+            // standing is a second, independent provider round trip on top of it, so a failure there
+            // is logged and reported rather than thrown: a merchant should still see their money when
+            // the provider's account-detail API is having a bad afternoon.
+            var refreshed = await TryBackfillAccountStatus(
                 tenantId,
                 storeId,
                 accountNumber.Value,
                 cancellationToken);
 
-            status = refreshed.Status;
-            canProcessPayments = refreshed.CanProcessPayments;
+            // Fail closed on the capability, for the same reason an unrecognised provider status
+            // does: not knowing is not permission. StatusIsProvisional is what separates this from a
+            // provider that actually said no, so a caller can retry rather than read it as a refusal.
+            status = refreshed?.Status ?? PaymentAccountStatus.Pending;
+            canProcessPayments = refreshed?.CanProcessPayments ?? false;
+            statusIsProvisional = refreshed is null;
         }
 
         return new PaymentAccountBalance
@@ -93,6 +102,7 @@ public class PropayAccountGateway(
             PendingBalance = ToMajorUnits(balance.PendingBalance),
             ReserveBalance = ToMajorUnits(balance.ReserveBalance),
             Status = status,
+            StatusIsProvisional = statusIsProvisional,
             CanProcessPayments = canProcessPayments,
             // achOut is the merchant's own direct-deposit account. When ProPay disables it the
             // account keeps taking money and the balance simply accumulates until it is restored,
@@ -123,9 +133,90 @@ public class PropayAccountGateway(
     }
 
     /// <summary>
+    /// Reads the store's standing from ProPay and records it, tolerating a failure at either step.
+    /// </summary>
+    /// <remarks>
+    /// Only for the balance path, where this is a secondary read whose failure must not cost the
+    /// caller the balance that was fetched successfully. <see cref="RefreshAccountDetails"/>
+    /// deliberately does not go through here — recording is the whole point of that call, so a
+    /// failure there is the caller's to see.
+    /// </remarks>
+    /// <returns>The standing, or <c>null</c> when it could not be read.</returns>
+    private async Task<PaymentAccountDetails?> TryBackfillAccountStatus(
+        long tenantId,
+        long storeId,
+        long accountNumber,
+        CancellationToken cancellationToken)
+    {
+        PaymentAccountDetails details;
+        PaymentProviderConfiguration configuration;
+
+        try
+        {
+            (details, configuration) = await ReadAccountDetails(
+                tenantId,
+                storeId,
+                accountNumber,
+                cancellationToken);
+        }
+        // A caller who hung up is not a failure to absorb — the response is going nowhere. Anything
+        // else, a refusal or a transport fault, is: the balance stands on its own.
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogError(
+                exception,
+                "Could not read the {ProviderId} account standing for store {StoreId} (tenant {TenantId}) while serving its balance; returning the balance with a provisional status.",
+                ProviderId,
+                storeId,
+                tenantId);
+
+            return null;
+        }
+
+        try
+        {
+            await repository.UpsertAccountDetails(configuration, cancellationToken);
+        }
+        // The standing was read successfully; only keeping it failed. Serve the real value — the
+        // store simply does not heal this time, and the next request reads it from the provider again.
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogError(
+                exception,
+                "Read the {ProviderId} account standing for store {StoreId} (tenant {TenantId}) but could not record it; serving it without healing the store.",
+                ProviderId,
+                storeId,
+                tenantId);
+        }
+
+        return details;
+    }
+
+    /// <summary>
     /// Reads the account detail from ProPay and records it against the store's payment configuration.
     /// </summary>
     private async Task<PaymentAccountDetails> ReadAndRecordAccountDetails(
+        long tenantId,
+        long storeId,
+        long accountNumber,
+        CancellationToken cancellationToken)
+    {
+        var (details, configuration) = await ReadAccountDetails(
+            tenantId,
+            storeId,
+            accountNumber,
+            cancellationToken);
+
+        await repository.UpsertAccountDetails(configuration, cancellationToken);
+
+        return details;
+    }
+
+    /// <summary>
+    /// Reads the account detail from ProPay, returning both the neutral contract and the record to
+    /// write for it. Split from the write so the balance path can tolerate either half failing.
+    /// </summary>
+    private async Task<(PaymentAccountDetails Details, PaymentProviderConfiguration Configuration)> ReadAccountDetails(
         long tenantId,
         long storeId,
         long accountNumber,
@@ -164,9 +255,7 @@ public class PropayAccountGateway(
             AccountDetailsRefreshedOn = refreshedOn,
         };
 
-        await repository.UpsertAccountDetails(configuration, cancellationToken);
-
-        return new PaymentAccountDetails
+        var details = new PaymentAccountDetails
         {
             AccountExists = true,
             ProviderId = ProviderId,
@@ -188,6 +277,8 @@ public class PropayAccountGateway(
             AchMonthlyLimit = MoneyAmount.Of(detail.AchPaymentMonthLimit, currency),
             RefreshedOn = refreshedOn,
         };
+
+        return (details, configuration);
     }
 
     /// <summary>

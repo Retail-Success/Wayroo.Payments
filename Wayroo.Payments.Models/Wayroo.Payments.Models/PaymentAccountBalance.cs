@@ -39,9 +39,25 @@ public class PaymentAccountBalance
 
     /// <summary>
     /// The account's standing. Non-null whenever <see cref="AccountExists"/> is <c>true</c> —
-    /// downstream consumers depend on that (Luci.Integrations.Api casts it unconditionally).
+    /// downstream consumers depend on that (Luci.Integrations.Api casts it unconditionally). Check
+    /// <see cref="StatusIsProvisional"/> before acting on it.
     /// </summary>
     public PaymentAccountStatus? Status { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Status"/> is a placeholder rather than the account's real standing.
+    /// </summary>
+    /// <remarks>
+    /// The balance is read live and is always real. Standing is not on the provider's balance call,
+    /// so for a store whose standing has never been recorded it takes a second provider read — and
+    /// when only that second read fails, the balance is still served rather than the whole request
+    /// failing over a value the caller may not even use. <c>true</c> says exactly that happened:
+    /// <see cref="Status"/> is <see cref="PaymentAccountStatus.Pending"/> and
+    /// <see cref="CanProcessPayments"/> is <c>false</c> because nothing is known, not because the
+    /// provider said so. A caller that gates selling on this should treat it as "unknown, retry"
+    /// rather than "no". Never <c>true</c> when <see cref="AccountExists"/> is <c>false</c>.
+    /// </remarks>
+    public bool StatusIsProvisional { get; set; }
 
     /// <summary>
     /// Whether the store can take payments right now. This is the field that gates selling — not
