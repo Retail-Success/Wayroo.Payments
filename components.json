@@ -46,6 +46,15 @@
       }
     }
   },
+  "Wayroo.Payments.BusinessLogic": {
+    "path": "Wayroo.Payments.BusinessLogic/Wayroo.Payments.BusinessLogic",
+    "tests": {
+      "Wayroo.Payments.BusinessLogic.UnitTests": {
+        "path": "Wayroo.Payments.BusinessLogic/Wayroo.Payments.BusinessLogic.UnitTests",
+        "type": "unit-tests"
+      }
+    }
+  },
   "Wayroo.Payments.Eventing": {
     "path": "Wayroo.Payments.Eventing/Wayroo.Payments.Eventing",
     "tests": {

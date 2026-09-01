@@ -1,17 +1,17 @@
 {
-  "ModelName": "untitled-1",
+  "ModelName": "Wayroo.Payments - PaymentConfiguration",
   "ModelMetadata": {
-    "Author": "",
+    "Author": "Wayroo Payments",
     "DateCreated": "May 27, 2026, 03:15 PM",
-    "DateLastModified": "May 27, 2026, 03:36 PM",
-    "Description": "",
+    "DateLastModified": "August 31, 2026, 04:10 PM",
+    "Description": "The DynamoDB table Wayroo.Payments keeps a store's payment provider configuration in. Deployed as {environment}-PaymentConfiguration; the environment prefix comes from the CDK (see Wayroo.Payments.Infrastructure/Resources/PaymentConfigurationTable.cs), so this model carries the unprefixed name.\n\nOne partition per store, so everything about a store is a single query and never a scan. Two kinds of item share that partition, which is why this model has two facets:\n\n  * Provider configuration, sort key = the provider id (propay, adyen). One per provider the store has. Three independent writers land on it in no fixed order, so every writer uses UpdateItem naming only the attributes it owns. A whole-item PutItem by any of them would erase another's work, taking live payment credentials or a store's recorded standing with it. That is why several sample rows here are partial: an attribute is absent until its writer has run.\n\n  * Store routing, sort key = the reserved literal #routing. One per store. Holds which provider the store acquires through and where it sits in the provider migration. Anything listing a store's providers has to skip this sort key or it hands back a provider configuration that is not one. A store with no routing item transacts through the platform default, which is what let this ship without a data backfill.\n\nConfigurationVersion is incremented server-side with ADD, never written from a value read earlier, and travels as the StoreProviderConfigChanged event's Sequence.\n\nSample values are illustrative only. The two JSON payload attributes really hold provider credentials and account PII, so the samples here are labelled placeholders rather than realistic values.\n\nAccess patterns, the attribute-by-attribute reference and the writer-ownership rules are in Docs/README.md next to this file. Not represented here: point-in-time recovery, the DynamoDB stream and the KMS encryption setting, all of which live in the CDK.",
     "AWSService": "Amazon DynamoDB",
     "Version": "3.0",
     "Project": "drafts"
   },
   "DataModel": [
     {
-      "TableName": "PaymentConfigurations",
+      "TableName": "PaymentConfiguration",
       "KeyAttributes": {
         "PartitionKey": {
           "AttributeName": "StoreId",
@@ -24,15 +24,39 @@
       },
       "NonKeyAttributes": [
         {
-          "AttributeName": "ProviderConfiguration",
-          "AttributeType": "S"
-        },
-        {
           "AttributeName": "AccountId",
           "AttributeType": "S"
         },
         {
           "AttributeName": "TenantId",
+          "AttributeType": "N"
+        },
+        {
+          "AttributeName": "ProviderConfiguration",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "ProviderAccountDetails",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "AccountStatus",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "AccountDetailsRefreshedOn",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "AcquiringProviderId",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "MigrationState",
+          "AttributeType": "S"
+        },
+        {
+          "AttributeName": "ConfigurationVersion",
           "AttributeType": "N"
         },
         {
@@ -44,128 +68,240 @@
           "AttributeType": "S"
         }
       ],
-      "TableData": [
+      "TableData": [],
+      "TableFacets": [
         {
-          "StoreId": {
-            "N": "21614"
+          "FacetName": "Provider configuration",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "StoreId",
+            "SortKeyAlias": "ProviderId"
           },
-          "ProviderId": {
-            "S": "propay"
-          },
-          "ProviderConfiguration": {
-            "S": "{\"foo\":\"tV}FMd)^x_\",\"bar\":1655761344135168,\"bike\":\",:GjiNtC2i\",\"a\":6219309533626368,\"b\":\";[M$Ju<wU8\",\"name\":4718060709609472,\"prop\":\"x`o;1Ya@$-\"}"
-          },
-          "AccountId": {
-            "S": "8045184604438528"
-          },
-          "TenantId": {
-            "N": "6362822162251776"
-          },
-          "CreatedOn": {
-            "S": "2026-11-16T22:44:44.347Z"
-          },
-          "ModifiedOn": {
-            "S": "2025-08-09T02:26:27.256Z"
-          }
+          "TableData": [
+            {
+              "StoreId": {
+                "N": "21614"
+              },
+              "ProviderId": {
+                "S": "propay"
+              },
+              "AccountId": {
+                "S": "718040110898"
+              },
+              "TenantId": {
+                "N": "3"
+              },
+              "ProviderConfiguration": {
+                "S": "{\"_comment\":\"placeholder - the real value is the provider's verbatim credential JSON\"}"
+              },
+              "ProviderAccountDetails": {
+                "S": "{\"_comment\":\"placeholder - the real value is the provider's verbatim account-detail JSON\"}"
+              },
+              "AccountStatus": {
+                "S": "ReadyToProcess"
+              },
+              "AccountDetailsRefreshedOn": {
+                "S": "2026-08-28T14:22:05.118Z"
+              },
+              "CreatedOn": {
+                "S": "2025-11-16T22:44:44.347Z"
+              },
+              "ModifiedOn": {
+                "S": "2026-08-28T14:22:05.118Z"
+              }
+            },
+            {
+              "StoreId": {
+                "N": "21614"
+              },
+              "ProviderId": {
+                "S": "adyen"
+              },
+              "AccountId": {
+                "S": "AH29XPT4G7Q2W"
+              },
+              "TenantId": {
+                "N": "3"
+              },
+              "ProviderConfiguration": {
+                "S": "{\"_comment\":\"placeholder - the real value is the provider's verbatim credential JSON\"}"
+              },
+              "CreatedOn": {
+                "S": "2026-07-02T09:11:38.902Z"
+              },
+              "ModifiedOn": {
+                "S": "2026-07-02T09:11:38.902Z"
+              }
+            },
+            {
+              "StoreId": {
+                "N": "50327"
+              },
+              "ProviderId": {
+                "S": "propay"
+              },
+              "AccountId": {
+                "S": "718040224417"
+              },
+              "TenantId": {
+                "N": "8"
+              },
+              "ProviderConfiguration": {
+                "S": "{\"_comment\":\"placeholder - the real value is the provider's verbatim credential JSON\"}"
+              },
+              "ProviderAccountDetails": {
+                "S": "{\"_comment\":\"placeholder - the real value is the provider's verbatim account-detail JSON\"}"
+              },
+              "AccountStatus": {
+                "S": "ActionRequired"
+              },
+              "AccountDetailsRefreshedOn": {
+                "S": "2026-08-30T06:47:12.660Z"
+              },
+              "CreatedOn": {
+                "S": "2025-10-27T01:20:57.368Z"
+              },
+              "ModifiedOn": {
+                "S": "2026-08-30T06:47:12.660Z"
+              }
+            },
+            {
+              "StoreId": {
+                "N": "89637"
+              },
+              "ProviderId": {
+                "S": "propay"
+              },
+              "AccountId": {
+                "S": "718040998311"
+              },
+              "TenantId": {
+                "N": "8"
+              },
+              "ProviderAccountDetails": {
+                "S": "{\"_comment\":\"placeholder - the real value is the provider's verbatim account-detail JSON\"}"
+              },
+              "AccountStatus": {
+                "S": "Suspended"
+              },
+              "AccountDetailsRefreshedOn": {
+                "S": "2026-08-15T18:03:44.501Z"
+              },
+              "CreatedOn": {
+                "S": "2026-08-15T18:03:44.501Z"
+              },
+              "ModifiedOn": {
+                "S": "2026-08-15T18:03:44.501Z"
+              }
+            }
+          ]
         },
         {
-          "StoreId": {
-            "N": "21614"
+          "FacetName": "Store routing",
+          "KeyAttributeAlias": {
+            "PartitionKeyAlias": "StoreId",
+            "SortKeyAlias": "ProviderId"
           },
-          "ProviderId": {
-            "S": "paypal"
-          },
-          "ProviderConfiguration": {
-            "S": "{\"foo\":\"M!Q!/Fp-:d\",\"bar\":\"KlP}b26-'L\",\"bike\":\"na5JaQ$X{j\",\"a\":4407333725667328,\"b\":4130765101072384,\"name\":\"#LTT`s@J;8\",\"prop\":7504978377703424}"
-          },
-          "AccountId": {
-            "S": "1566706967248896"
-          },
-          "TenantId": {
-            "N": "7065874877906944"
-          },
-          "CreatedOn": {
-            "S": "2026-12-20T07:28:10.156Z"
-          },
-          "ModifiedOn": {
-            "S": "2025-08-27T00:42:00.080Z"
-          }
-        },
-        {
-          "StoreId": {
-            "N": "50327"
-          },
-          "ProviderId": {
-            "S": "propay"
-          },
-          "ProviderConfiguration": {
-            "S": "{\"foo\":\"d[0</.bgsP\",\"bar\":\"?TF&\\\\q0Ryh\",\"bike\":591061913174016,\"a\":424095409766400,\"b\":\"%l[E9t)D?l\",\"name\":636019403653120,\"prop\":668707923689472}"
-          },
-          "AccountId": {
-            "S": "111230836539392"
-          },
-          "TenantId": {
-            "N": "7701665004126208"
-          },
-          "CreatedOn": {
-            "S": "2025-10-27T01:20:57.368Z"
-          },
-          "ModifiedOn": {
-            "S": "2026-01-31T21:53:28.008Z"
-          }
-        },
-        {
-          "StoreId": {
-            "N": "81979"
-          },
-          "ProviderId": {
-            "S": "propay"
-          },
-          "ProviderConfiguration": {
-            "S": "{\"foo\":\"^thM>\\\\0c\\\"&\",\"bar\":\"vj6&u6Jx+3\",\"bike\":\"_!!x3Q9]W!\",\"a\":\"c@A+8on|CC\",\"b\":\"'VPh*S)06s\",\"name\":\"WwfQvkD3uv\",\"prop\":6398899621199872}"
-          },
-          "AccountId": {
-            "S": "2586346013065216"
-          },
-          "TenantId": {
-            "N": "176752737386496"
-          },
-          "CreatedOn": {
-            "S": "2027-04-22T07:54:59.264Z"
-          },
-          "ModifiedOn": {
-            "S": "2025-07-29T02:25:12.204Z"
-          }
-        },
-        {
-          "StoreId": {
-            "N": "89637"
-          },
-          "ProviderId": {
-            "S": "paypal"
-          },
-          "ProviderConfiguration": {
-            "S": "{\"foo\":3737710751645696,\"bar\":\"0r|$bKQYLw\",\"bike\":\"M<KnIxwz+@\",\"a\":\"yOQwpYq152\",\"b\":\"sY`ALi3\\\"=a\",\"name\":\"fw5DoC+Rj$\",\"prop\":7426060933136384}"
-          },
-          "AccountId": {
-            "S": "3342492109897728"
-          },
-          "TenantId": {
-            "N": "50797414973440"
-          },
-          "CreatedOn": {
-            "S": "2027-01-25T11:46:21.134Z"
-          },
-          "ModifiedOn": {
-            "S": "2027-04-26T21:43:59.978Z"
-          }
+          "TableData": [
+            {
+              "StoreId": {
+                "N": "21614"
+              },
+              "ProviderId": {
+                "S": "#routing"
+              },
+              "TenantId": {
+                "N": "3"
+              },
+              "AcquiringProviderId": {
+                "S": "adyen"
+              },
+              "MigrationState": {
+                "S": "AdyenActive(PropayTail)"
+              },
+              "ConfigurationVersion": {
+                "N": "4"
+              },
+              "CreatedOn": {
+                "S": "2026-06-30T12:00:00.000Z"
+              },
+              "ModifiedOn": {
+                "S": "2026-07-02T09:11:38.902Z"
+              }
+            },
+            {
+              "StoreId": {
+                "N": "50327"
+              },
+              "ProviderId": {
+                "S": "#routing"
+              },
+              "TenantId": {
+                "N": "8"
+              },
+              "AcquiringProviderId": {
+                "S": "propay"
+              },
+              "MigrationState": {
+                "S": "PropayActive"
+              },
+              "ConfigurationVersion": {
+                "N": "1"
+              },
+              "CreatedOn": {
+                "S": "2026-08-01T15:30:00.000Z"
+              },
+              "ModifiedOn": {
+                "S": "2026-08-01T15:30:00.000Z"
+              }
+            }
+          ]
         }
       ],
       "DataAccess": {
         "MySql": {}
       },
+      "BillingMode": "PAY_PER_REQUEST",
+      "DateLastModified": "August 31, 2026, 04:10 PM",
       "SampleDataFormats": {
-        "storeId": [
+        "StoreId": [
+          "Int"
+        ],
+        "TenantId": [
+          "Int"
+        ],
+        "ProviderId": [
+          "dataTypes",
+          "String"
+        ],
+        "AccountId": [
+          "dataTypes",
+          "String"
+        ],
+        "ProviderConfiguration": [
+          "dataTypes",
+          "JSON"
+        ],
+        "ProviderAccountDetails": [
+          "dataTypes",
+          "JSON"
+        ],
+        "AccountStatus": [
+          "dataTypes",
+          "String"
+        ],
+        "AccountDetailsRefreshedOn": [
+          "date",
+          "ISO 8601 date and time"
+        ],
+        "AcquiringProviderId": [
+          "dataTypes",
+          "String"
+        ],
+        "MigrationState": [
+          "dataTypes",
+          "String"
+        ],
+        "ConfigurationVersion": [
           "Int"
         ],
         "CreatedOn": [
@@ -175,51 +311,52 @@
         "ModifiedOn": [
           "date",
           "ISO 8601 date and time"
-        ],
-        "ProviderConfiguration": [
-          "dataTypes",
-          "JSON"
-        ],
-        "AccountId": [
-          "dataTypes",
-          "Int"
-        ],
-        "TenantId": [
-          "Int"
-        ],
-        "StoreId": [
-          "Int"
-        ],
-        "ProviderId": [
-          "dataTypes",
-          "String"
         ]
-      },
-      "BillingMode": "PAY_PER_REQUEST",
-      "DateLastModified": "May 27, 2026, 03:36 PM"
+      }
     }
   ],
   "AccessPatterns": [
     {
       "Name": "UpsertConfiguration",
-      "Type": "PutItem",
-      "Description": "PK (StoreId) and SK (ProviderId)",
-      "TableName": "PaymentConfigurations",
-      "DateLastModified": "May 27, 2026, 03:28 PM"
+      "Type": "UpdateItem",
+      "Description": "PK (StoreId) + SK (ProviderId). The provider-webhook recorder merging the credential payload in. Owns ProviderConfiguration and nothing else.",
+      "TableName": "PaymentConfiguration",
+      "DateLastModified": "August 31, 2026, 04:10 PM"
+    },
+    {
+      "Name": "UpsertAccountDetails",
+      "Type": "UpdateItem",
+      "Description": "PK (StoreId) + SK (ProviderId). The account refresh merging the provider's account information in. Owns ProviderAccountDetails, AccountStatus and AccountDetailsRefreshedOn. Shares the item with UpsertConfiguration, which is why neither may use PutItem.",
+      "TableName": "PaymentConfiguration",
+      "DateLastModified": "August 31, 2026, 04:10 PM"
     },
     {
       "Name": "GetStoreProviderConfiguration",
       "Type": "GetItem",
-      "Description": "PK for StoreId and SK for ProviderId",
-      "TableName": "PaymentConfigurations",
-      "DateLastModified": "May 27, 2026, 03:28 PM"
+      "Description": "PK (StoreId) + SK (ProviderId). One provider's configuration for one store.",
+      "TableName": "PaymentConfiguration",
+      "DateLastModified": "August 31, 2026, 04:10 PM"
     },
     {
       "Name": "GetAllStoreConfigurations",
       "Type": "Query",
-      "Description": "PK only for StoreId",
-      "TableName": "PaymentConfigurations",
-      "DateLastModified": "May 27, 2026, 03:27 PM"
+      "Description": "PK (StoreId) only. Every provider configuration for a store, in one partition query. The caller must skip the #routing sort key, which is in the same partition but is not a provider configuration.",
+      "TableName": "PaymentConfiguration",
+      "DateLastModified": "August 31, 2026, 04:10 PM"
+    },
+    {
+      "Name": "GetRouting",
+      "Type": "GetItem",
+      "Description": "PK (StoreId) + SK (the literal #routing). Which provider the store acquires through. Absent for most stores, which then fall through to the platform default.",
+      "TableName": "PaymentConfiguration",
+      "DateLastModified": "August 31, 2026, 04:10 PM"
+    },
+    {
+      "Name": "UpsertRouting",
+      "Type": "UpdateItem",
+      "Description": "PK (StoreId) + SK (the literal #routing). A provider cutover. Writes AcquiringProviderId and MigrationState, and increments ConfigurationVersion with ADD so two concurrent writers cannot land on the same version.",
+      "TableName": "PaymentConfiguration",
+      "DateLastModified": "August 31, 2026, 04:10 PM"
     }
   ]
 }

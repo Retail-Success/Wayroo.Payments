@@ -27,3 +27,14 @@ variables:
   AWS_SecurityGroupId: "sg-0f78e65cd2af95c04"
   CloudMapNamespaceId: "ns-vy5bxti73kgbrbzl"
   CloudMapNamespaceArn: "arn:aws:servicediscovery:us-east-1:075515629050:namespace/ns-vy5bxti73kgbrbzl"
+  # ProPay/ProtectPay endpoints for this environment. These are the environment-wide DEFAULTS,
+  # the same role PropayApiBaseUrisOptions plays in Luci.Orders. They are NOT in Parameter Store;
+  # Parameter Store holds the per-tenant credentials, and a tenant may carry its own base-URL
+  # override there which wins over these for that tenant alone.
+  #
+  # TODO: supply the prod values. Left empty deliberately — the CloudFormation parameters declare
+  # MinLength = 1, so an empty value fails the deploy instead of starting a container pointed at
+  # the wrong ProPay estate.
+  PROPAY_REST_BASE_URI: https://api.propay.com
+  PROPAY_XML_BASE_URI: https://epay.propay.com/API/PropayAPI.aspx
+  PROTECTPAY_REST_BASE_URI: https://api.propay.com

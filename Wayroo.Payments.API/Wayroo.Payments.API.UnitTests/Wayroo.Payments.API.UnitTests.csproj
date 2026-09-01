@@ -36,6 +36,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wayroo.Payments.API\Wayroo.Payments.API.csproj" />
+    <!-- Referenced only so PaymentAccountStatusParityTests can compare the API's neutral status enum
+         against the event contract's. Nothing in the API itself depends on the event package. -->
+    <ProjectReference Include="..\..\Wayroo.Payments.Messages\Wayroo.Payments.Messages\Wayroo.Payments.Messages.csproj" />
   </ItemGroup>
 
 </Project>

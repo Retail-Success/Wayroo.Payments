@@ -48,6 +48,7 @@
         <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.IntegrationTests/Wayroo.Payments.DataAccess.IntegrationTests.csproj" />
         <Project Path="Wayroo.Payments.DataAccess/Wayroo.Payments.DataAccess.UnitTests/Wayroo.Payments.DataAccess.UnitTests.csproj" />
         <Project Path="Wayroo.Payments.API/Wayroo.Payments.API.UnitTests/Wayroo.Payments.API.UnitTests.csproj" />
+        <Project Path="Wayroo.Payments.BusinessLogic/Wayroo.Payments.BusinessLogic.UnitTests/Wayroo.Payments.BusinessLogic.UnitTests.csproj" />
         <Project Path="Wayroo.Payments.Eventing/Wayroo.Payments.Eventing.UnitTests/Wayroo.Payments.Eventing.UnitTests.csproj" />
         <Project Path="Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure.SmokeTests/Wayroo.Payments.Infrastructure.SmokeTests.csproj" />
         <Project Path="Wayroo.Payments.Messages/Wayroo.Payments.Messages.UnitTests/Wayroo.Payments.Messages.UnitTests.csproj" />
@@ -57,6 +58,7 @@
     <Project Path="Wayroo.Payments.Eventing/Wayroo.Payments.Eventing/Wayroo.Payments.Eventing.csproj" />
     <Project Path="Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure/Wayroo.Payments.Infrastructure.csproj" />
     <Project Path="Wayroo.Payments.API/Wayroo.Payments.API/Wayroo.Payments.API.csproj" />
+    <Project Path="Wayroo.Payments.BusinessLogic/Wayroo.Payments.BusinessLogic/Wayroo.Payments.BusinessLogic.csproj" />
     <Project Path="Wayroo.Payments.Messages/Wayroo.Payments.Messages/Wayroo.Payments.Messages.csproj" />
     <Project Path="Wayroo.Payments.Models/Wayroo.Payments.Models/Wayroo.Payments.Models.csproj" />
     <Project Path="Wayroo.Payments.SDK/Wayroo.Payments.SDK/Wayroo.Payments.SDK.csproj" />

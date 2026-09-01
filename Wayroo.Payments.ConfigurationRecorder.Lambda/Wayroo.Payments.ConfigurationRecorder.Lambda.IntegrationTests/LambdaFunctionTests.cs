@@ -71,6 +71,16 @@ public class LambdaFunctionTests(TestFixture fixture)
                     $"{{\"StoreId\":{expectedStoreId},\"TenantId\":{expectedTenantId}," +
                     $"\"storeId\":{expectedStoreId},\"tenantId\":{expectedTenantId}}}"));
 
+        // EventBridge has no local emulator, so stub PutEvents on the same WireMock server. The
+        // recorder announces the store's routing after writing, and without this the publish would
+        // reach real AWS, fail on credentials, and be routed to the (equally real) failure queues.
+        ordersStub
+            .Given(Request.Create().WithPath("/").UsingPost())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/x-amz-json-1.1")
+                .WithBody("{\"FailedEntryCount\":0,\"Entries\":[{\"EventId\":\"stubbed\"}]}"));
+
         SetRecorderEnvironment(tableName);
 
         // Mirrors the EventBridge envelope the recorder's queue actually receives (the
@@ -142,6 +152,22 @@ public class LambdaFunctionTests(TestFixture fixture)
         response.Item["ProviderConfiguration"].S.Should().BeEquivalentTo(detail.payload);
         response.Item.Should().ContainKey("CreatedOn");
         response.Item.Should().ContainKey("ModifiedOn");
+
+        // And the store is seeded at the platform default, which is what keeps the deploy inert.
+        var routing = await dynamoDbClient.GetItemAsync(new GetItemRequest
+        {
+            TableName = tableName,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["StoreId"] = new() { N = expectedStoreId.ToString() },
+                ["ProviderId"] = new() { S = "#routing" },
+            },
+        });
+
+        routing.Item.Should().NotBeNull();
+        routing.Item["AcquiringProviderId"].S.Should().Be(expectedProviderId);
+        routing.Item["MigrationState"].S.Should().Be("PropayActive");
+        routing.Item["ConfigurationVersion"].N.Should().Be("1");
     }
 
     private void SetRecorderEnvironment(string tableName)
@@ -157,6 +183,12 @@ public class LambdaFunctionTests(TestFixture fixture)
         // Point the data-access AmazonDynamoDBClient at DynamoDB Local (consumed via the "DynamoDb"
         // configuration section in Wayroo.Payments.DataAccess).
         Environment.SetEnvironmentVariable("DynamoDb__ServiceUrl", fixture.DynamoServiceUrl);
+
+        // The bus ARN is only ever read as a string; the client is pointed at the stub below.
+        Environment.SetEnvironmentVariable(
+            EnvironmentVariableKeys.WayrooEventsBusArn,
+            "arn:aws:events:us-east-1:000000000000:event-bus/test-wayroo-events");
+        Environment.SetEnvironmentVariable("EventBridge__ServiceUrl", fixture.OrdersApiBaseUrl);
 
         // The SDK's default credential chain expects creds even for DynamoDB Local.
         Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "notUsed");

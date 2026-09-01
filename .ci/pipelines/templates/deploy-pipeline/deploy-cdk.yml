@@ -67,6 +67,9 @@ jobs:
                     WayrooECSSecurityGroupId=$(AWS_SecurityGroupId) \
                     CloudMapNamespaceId=$(CloudMapNamespaceId) \
                     CloudMapNamespaceArn=$(CloudMapNamespaceArn) \
+                    PropayRestBaseUri=$(PROPAY_REST_BASE_URI) \
+                    PropayXmlBaseUri=$(PROPAY_XML_BASE_URI) \
+                    ProtectPayRestBaseUri=$(PROTECTPAY_REST_BASE_URI) \
                     --tags \
                       rs:environment=$(ENVIRONMENT) \
                       rs:service=$(ServiceName) \

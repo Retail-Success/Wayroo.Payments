@@ -19,4 +19,11 @@ public static class EventingConfigurationKeys
 
     /// <summary>AWS region the EventBridge client targets. Shared with the DynamoDB/SQS wiring.</summary>
     public const string AwsRegion = nameof(AwsRegion);
+
+    /// <summary>
+    /// Configuration section carrying an optional <c>ServiceUrl</c> that points the EventBridge client
+    /// at a local stub instead of AWS. Mirrors the <c>DynamoDb</c> section the data access layer uses
+    /// for DynamoDB Local. Unset everywhere but tests.
+    /// </summary>
+    public const string EventBridgeSection = "EventBridge";
 }

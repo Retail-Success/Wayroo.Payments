@@ -74,7 +74,11 @@ internal class ResourceStack : Stack
                 wayrooECSSecurityGroupId: config.WayrooECSSecurityGroupId,
                 cloudMapNamespaceId: config.CloudMapNamespaceId,
                 cloudMapNamespaceArn: config.CloudMapNamespaceArn,
-                configurationTable: configurationTable),
+                configurationTable: configurationTable,
+                alarmTopic: alarmTopic,
+                propayRestBaseUri: config.PropayRestBaseUri,
+                propayXmlBaseUri: config.PropayXmlBaseUri,
+                protectPayRestBaseUri: config.ProtectPayRestBaseUri),
         };
     }
 
@@ -234,6 +238,41 @@ internal class ResourceStack : Stack
             }
         ).ValueAsString;
 
+        var propayRestBaseUri = new CfnParameter(
+            this,
+            id: "PropayRestBaseUri",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description =
+                    "Base URI of the ProPay REST API for this environment (the environment-wide default; "
+                    + "a tenant may override it in Parameter Store).",
+                MinLength = 1, // force this to be supplied — an empty value must fail the deploy, not the container
+            }
+        ).ValueAsString;
+
+        var propayXmlBaseUri = new CfnParameter(
+            this,
+            id: "PropayXmlBaseUri",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description = "Base URI of the ProPay XML API for this environment (carries the account-detail call).",
+                MinLength = 1,
+            }
+        ).ValueAsString;
+
+        var protectPayRestBaseUri = new CfnParameter(
+            this,
+            id: "ProtectPayRestBaseUri",
+            new CfnParameterProps
+            {
+                Type = "String",
+                Description = "Base URI of the ProtectPay REST API for this environment.",
+                MinLength = 1,
+            }
+        ).ValueAsString;
+
         return new StackConfig
         {
             Environment = environment,
@@ -248,6 +287,9 @@ internal class ResourceStack : Stack
             WayrooECSSecurityGroupId = wayrooECSSecurityGroupId,
             CloudMapNamespaceId = cloudMapNamespaceId,
             CloudMapNamespaceArn = cloudMapNamespaceArn,
+            PropayRestBaseUri = propayRestBaseUri,
+            PropayXmlBaseUri = propayXmlBaseUri,
+            ProtectPayRestBaseUri = protectPayRestBaseUri,
         };
     }
 }

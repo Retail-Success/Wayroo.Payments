@@ -25,6 +25,9 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.7" />
+    <!-- For IStartupValidator. This lambda builds a bare ServiceProvider rather than a host, so
+         nothing runs the tiers' ValidateOnStart() validators unless it does so itself. -->
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.7" />
     <PackageReference Include="Serilog" Version="3.1.1" />
     <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="7.0.0" />
@@ -34,6 +37,7 @@
     <ProjectReference Include="..\..\Wayroo.Payments.Models\Wayroo.Payments.Models\Wayroo.Payments.Models.csproj" />
     <ProjectReference Include="..\..\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess.csproj" />
     <ProjectReference Include="..\..\Wayroo.Payments.Eventing\Wayroo.Payments.Eventing\Wayroo.Payments.Eventing.csproj" />
+    <ProjectReference Include="..\..\Wayroo.Payments.Messages\Wayroo.Payments.Messages\Wayroo.Payments.Messages.csproj" />
   </ItemGroup>
 
 </Project>

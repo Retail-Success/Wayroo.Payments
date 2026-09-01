@@ -1,10 +1,44 @@
 # Coding conventions
 
 - Prefer file-scoped namespaces (`namespace Foo.Bar;`) over block-scoped namespaces (`namespace Foo.Bar { }`) in all C# files.
-- All controller action methods (once an API is added) must include a `Name` property on their HTTP verb attribute (e.g. `[HttpGet("route", Name = nameof(MyAction))]`). NSwag uses the `Name` property to generate deterministic operation IDs in the SDK client.
+- All controller action methods must include a `Name` property on their HTTP verb attribute (e.g.
+  `[HttpGet("route", Name = nameof(MyAction))]`), so operation IDs stay deterministic. Note the SDK is
+  **hand-written Refit**, not generated — adding an endpoint means hand-adding the matching method and
+  literal route to `Wayroo.Payments.SDK/Clients/IClient.cs`; nothing generates it for you.
 
 # Structure
 
+- `Wayroo.Payments.API` — the read API (ECS Fargate, `payments.luci-{env}`, net8). Unauthenticated: it
+  trusts the calling composite. Two controllers — recorded provider configurations, and merchant
+  accounts (balance + account refresh). Controllers are HTTP only — provider selection and the
+  provider calls themselves live in `Wayroo.Payments.BusinessLogic`, so adding a provider never touches
+  a controller. Adding a required config value means adding it to `EnvironmentVariableKeys.cs` **and** to
+  the `Environment` dictionary in `Wayroo.Payments.Infrastructure/Resources/PaymentsAPI.cs`, or the API
+  fails startup validation in ECS.
+- **No direct dependency on another Wayroo service.** This service talks to its payment providers, its
+  own DynamoDB table, and the event buses — never to Luci.Orders or any sibling API. Anything it has
+  not been told, it does not go and fetch: a store whose provider account reference it holds no record
+  of is reported as having no account, and a backfill supplies the reference on the refresh call
+  instead. (`Wayroo.Payments.ConfigurationRecorder.Lambda` still breaks this rule — see its
+  `Gateways/Propay/PropayStoreOwnerResolver`, which calls the Orders API to map an account to a store.)
+- `Wayroo.Payments.BusinessLogic` — provider selection and the account operations. `IPaymentAccountManager`
+  answers "which provider is this store on" so no caller has to, from the store's `#routing` record —
+  `AcquiringProviderId`, falling back to `PaymentGatewayOptions.DefaultProviderId` when there is none,
+  which is what keeps the mechanism inert. A routing value with no gateway raises rather than quietly
+  falling back to the old provider. Gateways live behind
+  `IPaymentGatewayRegistry`; adding a provider is a new `Gateways/{Provider}/` folder plus a call in
+  `AddPaymentsBusinessLogic` — the registry picks it up, and **no controller changes**. This is the tier
+  a backfill worker or the recorder lambda should consume rather than re-deriving the choice.
+- `Wayroo.Payments.Models` — the API contracts plus `IPaymentConfigurationRepository`. Deliberately
+  carries **no package references**, which is why `MoneyAmount` and `PaymentAccountStatus` are declared
+  here rather than reused from `Wayroo.Payments.Messages`. `PaymentAccountStatusParityTests` fails the
+  build if the two neutral status enums drift apart.
+- `Wayroo.Payments.DataAccess` — DynamoDB access for `{env}-PaymentConfiguration`. **All three writers
+  use `UpdateItem`, never `PutItem`**: the webhook recorder owns `ProviderConfiguration` and the account
+  refresh owns `ProviderAccountDetails`/`AccountStatus`, they land on the same record in no fixed
+  order, and a whole-item put by either would erase the other's work. The store's routing lives on its
+  own `#routing` item in the same partition — **anything listing a store's providers must skip that
+  sort key**. See `Docs/README.md`.
 - `Wayroo.Payments.ConfigurationRecorder.Lambda` — the SQS-triggered worker lambda. `Function.cs` wires up
   Serilog JSON logging and a DI service provider, and validates required env vars (declared in
   `EnvironmentVariableKeys.cs`) on cold start.
@@ -14,8 +48,10 @@
   natively (`IntegrationJson.DeserializeMessage`), never via `EventQueueDeserializer`.
 - `Wayroo.Payments.Messages` — the provider-neutral payment integration events this service publishes
   on EventBridge (`MerchantAccountStatusChanged`, `PaymentSettlementRecorded`, `PayoutCompleted`,
-  `DisputeOpened`, `DisputeStatusChanged`, `TransferReturned`), shipped as a NuGet package on the Luci
-  feed. The envelope they plug into (`IStoreScopedEvent`, `IntegrationEnvelope`, `DetailType`,
+  `DisputeOpened`, `DisputeStatusChanged`, `TransferReturned`, `StoreProviderConfigChanged`), shipped
+  as a NuGet package on the Luci feed. `StoreProviderConfigChanged` is the config-sync event Orders
+  builds its provider-routing read model from (WR-19269/D5); the recorder publishes it when a store's
+  routing actually changes, and its `Sequence` is the routing record's `ConfigurationVersion`. The envelope they plug into (`IStoreScopedEvent`, `IntegrationEnvelope`, `DetailType`,
   `IntegrationJson`) comes from the `Wayroo.Common` package. Two rules govern changes here, both
   documented on `PaymentEvents`:
     - **Provider neutrality.** The only provider detail allowed through is an opaque `ProviderId` plus
