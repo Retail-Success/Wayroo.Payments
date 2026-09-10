@@ -6,7 +6,7 @@
 # BuildKit inline cache is enabled in CI/CD pipeline for faster builds by reusing layers from previous builds
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 80
 

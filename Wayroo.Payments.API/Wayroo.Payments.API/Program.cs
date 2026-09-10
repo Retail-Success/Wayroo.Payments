@@ -1,22 +1,30 @@
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc.Versioning;
 using Serilog;
-using Serilog.Filters;
+using Serilog.Events;
 using Wayroo.Payments.API;
 using Wayroo.Payments.API.Extensions;
 using Wayroo.Payments.API.Filters;
+using Wayroo.Payments.API.Logging;
 using Wayroo.Payments.BusinessLogic.Extensions;
 using Wayroo.Payments.DataAccess.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Serilog → JSON to stdout, excluding healthcheck noise.
+// Serilog → JSON to stdout. The JSON shape matters beyond readability: the CloudWatch metric filters
+// in the PaymentsAPI construct match on `$.Properties.<name>`, which is where this formatter puts a
+// message template property.
 builder.Host.UseSerilog((context, configuration) =>
 {
     configuration
-        .WriteTo.Console(formatter: new Serilog.Formatting.Json.JsonFormatter());
-
-    configuration.Filter.ByExcluding(Matching.WithProperty("RequestPath", "/status"));
+        .WriteTo.Console(formatter: new Serilog.Formatting.Json.JsonFormatter())
+        // Configuring Serilog in code means Serilog never reads the `Logging:LogLevel` section in
+        // appsettings.json (that section governs only the pre-host logger built below, for the
+        // missing-configuration check). So ASP.NET Core's own per-request chatter — "Request
+        // starting", "Executing endpoint", "Request finished", several lines per call at Information
+        // — has to be turned down here instead. UseSerilogRequestLogging below replaces all of it
+        // with one line per request, which is also the line the probe filter can then drop.
+        .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning);
 });
 
 #pragma warning disable ASP0000 // BuildServiceProvider in ConfigureServices is needed to grab a logger before the host is built
@@ -118,6 +126,18 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
+// One summary line per request, in place of the several ASP.NET Core emits (turned down to Warning
+// above) — and the line the health/status probes are then dropped from, by RequestLogLevels.
+// Registered first so it wraps everything below it and still reports a request that a later piece of
+// middleware short-circuits.
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetLevel = (httpContext, _, exception) => RequestLogLevels.For(
+        httpContext.Request.Path,
+        httpContext.Response.StatusCode,
+        exception);
+});
+
 string[] swaggerEnvironments = ["dev", "qa"];
 
 if (app.Environment.IsDevelopment()
@@ -131,7 +151,7 @@ if (app.Environment.IsDevelopment()
 // to have enforced auth, matching the Wayroo.Notification.API convention.
 
 app.MapControllers();
-app.MapHealthChecks("/status");
+app.MapHealthChecks(Routes.StatusRoute);
 
 app.Run();
 

@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- net8.0 for Wayroo.Payments.API, net10.0 for the lambdas and the test projects. -->
+    <!-- Every in-repo consumer is net10 as of WR-19817 (the API moved off net8 with it), so the net8.0
+         target is now spare capacity rather than a requirement — kept so this tier stays consumable
+         from a net8 host, and because it costs one extra compile. This project is not feed-published;
+         Wayroo.Payments.Models / .Messages / .SDK are the ones that genuinely need net8.0. -->
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -12,17 +15,17 @@
   <ItemGroup>
     <!-- 10.0.11 rather than the 8.x line: RetailSuccess.PaymentGateway.Propay 8.0.3 pulls
          Microsoft.Extensions.Http 10.0.11 on the net10 target, and the API's OpenTelemetry stack pulls
-         the 10.x binder even on net8, so anything lower is a package downgrade (NU1605, an error here).
-         These packages still ship net8.0 assets, which is why Wayroo.Payments.DataAccess can pin the
-         10.x line while being consumed by the net8 API. -->
+         the 10.x binder, so anything lower is a package downgrade (NU1605, an error here). These
+         packages still ship net8.0 assets, which is what lets this project keep its net8.0 target on
+         the 10.x line. -->
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.11" />
-    <!-- For OptionsBuilder.Bind. Arrived only transitively before, and at 8.0.0 on the net8 target via
-         RetailSuccess.PaymentGateway.Propay, so a direct 10.0.11 is an upgrade rather than a downgrade
-         and matches the four Microsoft.Extensions.* pins already in this group. -->
+    <!-- For OptionsBuilder.Bind. Arrived only transitively before, and at 8.0.0 on the net8.0 target
+         via RetailSuccess.PaymentGateway.Propay, so a direct 10.0.11 is an upgrade rather than a
+         downgrade and matches the four Microsoft.Extensions.* pins already in this group. -->
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.11" />
     <!-- ProPay pulls Destructurama.Attributed 3.0.0, which caps Serilog below 3.0 and so conflicts
          with the API's Serilog 3.1.1 (NU1608, an error here). 3.1.0 widens that to [2.10.0, 4.0.0),

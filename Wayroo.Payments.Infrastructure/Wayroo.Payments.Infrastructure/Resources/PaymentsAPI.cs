@@ -27,7 +27,8 @@ internal class PaymentsAPI
 
     // Mirror Function.ServiceName / ComponentName in the recorder lambda so alarm names across this
     // service read the same way: {env}-WayrooPayments-{Component}-{What}. Hardcoded for the same
-    // reason the environment variable keys below are — the API is net8 and this project is net10.
+    // reason the environment variable keys below are — see the ProjectReference comment in this
+    // project's csproj for why the API is not referenced from here.
     private const string ServiceName = "WayrooPayments";
     private const string ComponentName = "API";
 
@@ -157,8 +158,9 @@ internal class PaymentsAPI
                 StreamPrefix = serviceName,
                 LogGroup = logGroup,
             }),
-            // Keys mirror Wayroo.Payments.API.EnvironmentVariableKeys. Can't ProjectReference the API
-            // (net8 vs net10 TFMs) so they're inlined; keep them in sync with that file. The
+            // Keys mirror Wayroo.Payments.API.EnvironmentVariableKeys. The API is not referenced from
+            // this project (it is a web project; see the csproj), so they're inlined; keep them in
+            // sync with that file. The
             // `PaymentConfigurationTableName` key mirrors Wayroo.Payments.DataAccess and matches the
             // recorder lambda's wiring — without it, the API uses the literal "PaymentConfiguration"
             // (no env prefix) and reads from a table that doesn't exist in deployed environments.

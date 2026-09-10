@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- net8.0 for consumers still on net8 (Luci.Management.Api pins 1.0.20260623.3); net10.0 for
+         this repo and everything that has moved. Matches the multi-targeting on
+         Wayroo.Payments.Models, which this project ships the contracts of. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Wayroo.Payments.SDK</RootNamespace>
@@ -10,10 +13,24 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Refit.HttpClientFactory pulls in Refit + IHttpClientFactory integration. Version pinned to 7.0.0 to
+    <!-- Refit.HttpClientFactory pulls in Refit + IHttpClientFactory integration. Held on the 7.x line to
          match what RetailSuccess.SDK.Core ships with on net6+, so consumers on net8 (e.g. Luci.Management.Api)
-         don't see a transitive downgrade. -->
-    <PackageReference Include="Refit.HttpClientFactory" Version="7.0.0" />
+         don't see a transitive downgrade. Its newest asset is net7.0, which net10 resolves happily —
+         the pin is about the consumer's floor, not about which TFMs this package builds for.
+
+         7.2.22 rather than 7.0.0, and NOT to be lowered: everything below it carries GHSA-3hxg-fxwm-8gf7,
+         a critical CRLF-injection hole in Refit's [Header]/[HeaderCollection]/[Authorize] attributes
+         (unvalidated header values let a caller inject headers or smuggle a request). 7.2.22 is the
+         patched release and the last of the 7.x line, so this is the highest fix available without
+         crossing the major that would move consumers' floor. Adding the net10.0 target above is what
+         surfaced it: NuGet audits transitive packages on net9.0+ targets and only direct ones on net8.0,
+         so the advisory was present but unreported while this project was net8-only. -->
+    <PackageReference Include="Refit.HttpClientFactory" Version="7.2.22" />
+    <!-- Deliberately left on the 8.0.x line rather than raised to the 10.0.x the rest of the solution
+         pins. This is the one project consumed from outside the repo, and a floor is contagious: pinning
+         10.0.x here would force every net8 consumer of this SDK up to 10.0.x runtime assemblies just to
+         call a read endpoint. The 8.0.x assets are compatible with the net10 target, so both TFMs build
+         from these. Raise them only when no net8 consumer is left. -->
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
