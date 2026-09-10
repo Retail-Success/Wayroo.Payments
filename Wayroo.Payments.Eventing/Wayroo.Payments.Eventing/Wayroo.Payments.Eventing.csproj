@@ -1,8 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Multi-targeted for the same reason Models/DataAccess are: the recorder lambda is net10 and
-         Wayroo.Payments.API is net8 (dotnet/aspnet:8.0 image), and both need to publish eventually. -->
+    <!-- Multi-targeted for the same reason Models/DataAccess are. Both consumers (the recorder lambda
+         and Wayroo.Payments.API) are net10 as of WR-19817, so the net8.0 target is spare capacity
+         now rather than a requirement — kept so a net8 host could still consume this publisher. -->
     <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

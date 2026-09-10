@@ -35,4 +35,30 @@ internal static class Routes
     // not the caller's, so that a store moving between providers touches no caller. Callers that
     // genuinely need to reach a specific provider pass it as an optional query parameter.
     public const string AccountsRoute = $"{BaseRoute}/tenants/{{tenantId}}/stores/{{storeId}}/account";
+
+    /// <summary>
+    /// The liveness probe. <b>Deployed contract:</b> the ECS container health check in
+    /// <c>Wayroo.Payments.Infrastructure/Resources/PaymentsAPI.cs</c> curls this literal path, so
+    /// renaming it means renaming it there too and redeploying both.
+    /// </summary>
+    public const string StatusRoute = "/status";
+
+    /// <summary>
+    /// Not mapped by this service, which answers probes on <see cref="StatusRoute"/>. Named only so
+    /// <see cref="IsProbePath"/> covers it too, because <c>/health</c> is the conventional path
+    /// across the estate and a probe pointed at it — by a load balancer, a monitor, or whoever maps
+    /// it here next — should not become the loudest thing in the log group.
+    /// </summary>
+    public const string HealthRoute = "/health";
+
+    /// <summary>
+    /// Whether <paramref name="path"/> is a probe endpoint whose request log is noise.
+    /// </summary>
+    /// <remarks>
+    /// Matched with <see cref="PathString.StartsWithSegments(PathString)"/> rather than equality so a
+    /// trailing slash or a health-check sub-path (<c>/status/ready</c>) is covered too. Culture is
+    /// irrelevant here — <c>PathString</c> compares ordinally, case-insensitively.
+    /// </remarks>
+    public static bool IsProbePath(PathString path) =>
+        path.StartsWithSegments(StatusRoute) || path.StartsWithSegments(HealthRoute);
 }

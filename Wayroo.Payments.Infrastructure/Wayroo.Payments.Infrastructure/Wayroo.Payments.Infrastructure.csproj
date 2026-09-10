@@ -13,16 +13,22 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Amazon.CDK.Lib" Version="2.235" />
-        <PackageReference Include="Constructs" Version="[10.0.0,11.0.0)" />
+        <PackageReference Include="Amazon.CDK.Lib" Version="2.268.0" />
+        <!-- Floor tracks whatever Amazon.CDK.Lib asks for: NuGet resolves a range to its lowest
+             version, so a floor under the CDK's own requirement is a package downgrade (NU1605, an
+             error here). 2.268.0 wants >= 10.5.0. Raise this alongside the CDK, not on its own. -->
+        <PackageReference Include="Constructs" Version="[10.5.0,11.0.0)" />
     </ItemGroup>
     <ItemGroup>
         <!--
-          Wayroo.Payments.API targets net8.0 (matches Notification.API and the dotnet/aspnet:8.0
-          Dockerfile). This project is net10 (CDK), so we can't ProjectReference the API directly.
-          The PaymentsAPI construct hardcodes the small set of env-var keys instead of importing
-          Wayroo.Payments.API.EnvironmentVariableKeys; if those keys ever change, the constants in
-          PaymentsAPI.cs need to be updated alongside.
+          Wayroo.Payments.API is deliberately NOT referenced here, even though both projects are net10
+          as of WR-19817. It is a Microsoft.NET.Sdk.Web project, so referencing it would pull ASP.NET
+          Core, Swashbuckle and OpenTelemetry into the CDK synth assembly for the sake of one class of
+          string constants. The PaymentsAPI construct hardcodes the small set of env-var keys instead
+          of importing Wayroo.Payments.API.EnvironmentVariableKeys; if those keys ever change, the
+          constants in PaymentsAPI.cs need to be updated alongside. If that hand-sync ever bites,
+          promote the keys into Wayroo.Payments.Models (which both projects already reference) rather
+          than referencing the web project.
         -->
         <ProjectReference Include="..\..\Wayroo.Payments.ConfigurationRecorder.Lambda\Wayroo.Payments.ConfigurationRecorder.Lambda\Wayroo.Payments.ConfigurationRecorder.Lambda.csproj" />
         <ProjectReference Include="..\..\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess\Wayroo.Payments.DataAccess.csproj" />

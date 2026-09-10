@@ -8,7 +8,7 @@
 
 # Structure
 
-- `Wayroo.Payments.API` — the read API (ECS Fargate, `payments.luci-{env}`, net8). Unauthenticated: it
+- `Wayroo.Payments.API` — the read API (ECS Fargate, `payments.luci-{env}`, net10). Unauthenticated: it
   trusts the calling composite. Two controllers — recorded provider configurations, and merchant
   accounts (balance + account refresh). Controllers are HTTP only — provider selection and the
   provider calls themselves live in `Wayroo.Payments.BusinessLogic`, so adding a provider never touches

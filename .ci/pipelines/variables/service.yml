@@ -14,6 +14,6 @@ variables:
   CF_TEMPLATE_FILE: "$(Pipeline.Workspace)/CDK/PaymentsInfrastructureCDK.template.json"
   NUGET_FEED_URL: "https://pkgs.dev.azure.com/RetailSuccess/Luci-Dev/_packaging/Luci/nuget/v3/index.json"
   ECR_REGION: "us-east-1"
-  # Payments has no ECS/API service today. This is kept for when an API component is added;
-  # the ECS force-deployment job in deploy-cdk.yml only runs when components.json has an "api" type.
+  # Must match FargateService.ServiceName in Wayroo.Payments.Infrastructure/Resources/PaymentsAPI.cs.
+  # The ECS force-deployment job in deploy-cdk.yml runs because components.json declares an "api" type.
   ECS_SERVICE_NAME: "$(ENVIRONMENT)-wayroo-payments"

@@ -12,9 +12,9 @@ namespace Wayroo.Payments.Models;
 /// </para>
 /// <para>
 /// Lives in this project because it is the one both the tier that emits these
-/// (<c>Wayroo.Payments.BusinessLogic</c>) and the CDK app that filters on them can see — the CDK
-/// cannot reference <c>Wayroo.Payments.API</c> across the net8/net10 split, and inlining the strings
-/// there is the hand-sync problem that file already carries for its environment variable keys.
+/// (<c>Wayroo.Payments.BusinessLogic</c>) and the CDK app that filters on them can see — the CDK does
+/// not reference <c>Wayroo.Payments.API</c> (a web project), and inlining the strings there is the
+/// hand-sync problem that file already carries for its environment variable keys.
 /// </para>
 /// <para>
 /// <b>These values are a deployed contract.</b> Renaming one silently stops its alarm matching:

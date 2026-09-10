@@ -7,7 +7,7 @@ parameters:
   awsCredentials: ""
   region: ""
   artifactName: "SmokeTests"
-  dotnetVersion: "8.x"
+  dotnetVersion: "10.x"
   testRunTitle: "Smoke Tests"
   assumeRoleArn: ""
 

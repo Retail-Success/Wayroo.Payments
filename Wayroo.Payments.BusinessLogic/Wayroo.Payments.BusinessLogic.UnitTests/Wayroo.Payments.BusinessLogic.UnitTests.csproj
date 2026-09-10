@@ -3,8 +3,8 @@
   <PropertyGroup>
     <!--
       Targets net10 to match the other test projects in this solution. The CI build agent only
-      installs the net10 runtime, so a net8 testhost can't launch on it; net10 is forward-compatible
-      with the net8 assets of the subject-under-test.
+      installs the net10 runtime, so a net8 testhost can't launch on it; the subject-under-test
+      multi-targets net8/net10, so the tests exercise its net10 asset.
     -->
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
