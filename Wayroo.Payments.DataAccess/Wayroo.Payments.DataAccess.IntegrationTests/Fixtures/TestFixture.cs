@@ -144,6 +144,9 @@ public class TestFixture : IDisposable
     public PaymentConfigurationRepository GetRepository(IAmazonDynamoDB client, DynamoDbClientOptions options)
         => new(client, Options.Create(options), NullLogger<PaymentConfigurationRepository>.Instance);
 
+    public AdyenAccountRepository GetAdyenRepository(IAmazonDynamoDB client, DynamoDbClientOptions options)
+        => new(client, Options.Create(options), NullLogger<AdyenAccountRepository>.Instance);
+
     public void Dispose()
     {
         GC.SuppressFinalize(this);
