@@ -53,6 +53,16 @@ public class AdyenGatewayOptions
     public string? LiveEndpointUrlPrefix { get; set; }
 
     /// <summary>
+    /// The per-tenant settings, keyed by tenant identifier as text.
+    /// </summary>
+    /// <remarks>
+    /// Keyed by text because that is what a configuration key is, and the values arrive from
+    /// Parameter Store one leaf at a time. A tenant with no entry cannot be onboarded, which is the
+    /// intended behaviour rather than a gap — see <see cref="AdyenTenantOptions"/>.
+    /// </remarks>
+    public Dictionary<string, AdyenTenantOptions> Tenants { get; init; } = [];
+
+    /// <summary>
     /// Which of our environments to stamp on the references we write.
     /// </summary>
     /// <remarks>

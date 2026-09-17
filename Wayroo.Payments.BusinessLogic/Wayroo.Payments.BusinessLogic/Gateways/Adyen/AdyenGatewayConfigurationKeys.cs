@@ -27,4 +27,11 @@ public static class AdyenGatewayConfigurationKeys
 
     /// <summary>Which environment letter to stamp on written references. Optional; dev otherwise.</summary>
     public const string ReferenceEnvironment = $"{Section}:{nameof(AdyenGatewayOptions.ReferenceEnvironment)}";
+
+    /// <summary>The per-tenant settings. Required for every tenant that onboards stores.</summary>
+    public const string Tenants = $"{Section}:{nameof(AdyenGatewayOptions.Tenants)}";
+
+    /// <summary>One tenant's settings — see <see cref="AdyenTenantOptions"/>.</summary>
+    /// <param name="tenantId">The tenant the settings belong to.</param>
+    public static string TenantSection(long tenantId) => $"{Tenants}:{tenantId}";
 }

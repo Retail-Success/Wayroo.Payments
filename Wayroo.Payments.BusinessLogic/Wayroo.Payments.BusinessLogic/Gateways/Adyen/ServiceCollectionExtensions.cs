@@ -81,6 +81,8 @@ public static class ServiceCollectionExtensions
         services.AddAccountHoldersService();
         services.AddBalanceAccountsService();
 
+        services.AddScoped<IAdyenOnboardingGateway, AdyenOnboardingGateway>();
+
         return services;
     }
 
