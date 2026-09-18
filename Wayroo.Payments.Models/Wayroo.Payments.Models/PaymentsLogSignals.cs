@@ -54,4 +54,24 @@ public static class PaymentsLogSignals
     /// than at the read.
     /// </remarks>
     public const string GetBalanceStatusBackfilled = nameof(GetBalanceStatusBackfilled);
+
+    /// <summary>
+    /// A legal entity was created at Adyen and could not be recorded against the store it was created
+    /// for, so nothing can reach it again.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The one failure in Adyen onboarding with no way back. Adyen ignores the idempotency header on
+    /// legal entities, offers no way to search for one by anything the platform sets, and offers no
+    /// way to delete one — so an entity created but not recorded is permanent, invisible to this
+    /// service, and will be joined by another the next time the store is onboarded.
+    /// </para>
+    /// <para>
+    /// Harmless in itself: a legal entity with no account holder holds no money and can do nothing.
+    /// It matters because it is the only trace, and because a rising count means something is
+    /// repeatedly failing between the call and the write. The reference logged alongside is what
+    /// finds it in Adyen's Customer Area.
+    /// </para>
+    /// </remarks>
+    public const string AdyenLegalEntityOrphaned = nameof(AdyenLegalEntityOrphaned);
 }

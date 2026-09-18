@@ -35,6 +35,9 @@
     <!-- The ProPay/ProtectPay client. Read the published package's surface, not the local
          RetailSuccess.PaymentGateway.Propay checkout, which is behind this version. -->
     <PackageReference Include="RetailSuccess.PaymentGateway.Propay" Version="8.0.3" />
+    <!-- Adyen's official client. Its service classes track one API version each: this release speaks
+         Legal Entity Management v4 and balance-platform Configuration v2, which is what pins ours. -->
+    <PackageReference Include="Adyen" Version="35.0.0" />
   </ItemGroup>
 
   <ItemGroup>

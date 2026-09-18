@@ -7,6 +7,7 @@ using Wayroo.Payments.API.Extensions;
 using Wayroo.Payments.API.Filters;
 using Wayroo.Payments.API.Logging;
 using Wayroo.Payments.BusinessLogic.Extensions;
+using Wayroo.Payments.BusinessLogic.Gateways.Adyen;
 using Wayroo.Payments.DataAccess.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -71,6 +72,22 @@ if (!string.IsNullOrWhiteSpace(propaySecretsPath))
     });
 }
 
+// The Adyen credentials arrive the same way, from their own vendor path. Deliberately NOT listed in
+// EnvironmentVariableKeys: everything there is required at startup, and Adyen is not provisioned in
+// every environment yet — requiring it would refuse to start hosts that never call Adyen. What
+// guards a misconfigured Adyen host instead is the Adyen:Enabled switch, which turns on strict
+// validation of every credential at startup.
+var adyenSecretsPath = builder.Configuration[AdyenGatewayConfigurationKeys.SecretsPath];
+if (!string.IsNullOrWhiteSpace(adyenSecretsPath))
+{
+    builder.Configuration.AddSystemsManager(configureSource =>
+    {
+        configureSource.Path = adyenSecretsPath;
+        configureSource.ReloadAfter = TimeSpan.FromMinutes(5);
+        configureSource.Optional = builder.Environment.IsDevelopment();
+    });
+}
+
 // A blank path is left to the required-configuration check below, which names every missing key at
 // once instead of dying inside the configuration provider on the first one.
 
@@ -96,6 +113,10 @@ builder.Services.AddOpenTelemetryWithXRay(builder.Configuration);
 builder.Services.AddPaymentsDataAccess(builder.Configuration);
 
 builder.Services.AddPaymentsBusinessLogic(builder.Configuration);
+
+// Separate from AddPaymentsBusinessLogic because it is switched per host: see Adyen:Enabled. With it
+// off this registers only the stand-in that refuses, so the endpoints answer the same way everywhere.
+builder.Services.AddAdyenAccountGateway(builder.Configuration);
 
 builder.Services.AddApiVersioning(config =>
 {

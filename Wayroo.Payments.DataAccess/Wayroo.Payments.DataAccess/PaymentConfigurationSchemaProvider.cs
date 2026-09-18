@@ -9,7 +9,7 @@ namespace Wayroo.Payments.DataAccess;
 /// of the payment configuration table. Mirrors the schema-provider pattern in
 /// Wayroo.ContentLibrary.DataAccess (DSOContentSchemaProvider).
 /// </summary>
-public static class PaymentConfigurationSchemaProvider
+public static partial class PaymentConfigurationSchemaProvider
 {
     /// <summary>The table's partition key is the StoreId attribute (a number).</summary>
     public static string AttributeNameForPartitionKey => nameof(PaymentProviderConfiguration.StoreId);
@@ -125,7 +125,7 @@ public static class PaymentConfigurationSchemaProvider
     /// writer has nothing to say about that attribute" and omits it entirely, leaving whatever is
     /// already stored. CreatedOn is written only on first insert; ModifiedOn on every write.
     /// </summary>
-    private static PaymentConfigurationUpdate BuildUpdate(
+    internal static PaymentConfigurationUpdate BuildUpdate(
         DateTimeOffset now,
         IReadOnlyList<(string AttributeName, AttributeValue? Value)> attributes)
     {

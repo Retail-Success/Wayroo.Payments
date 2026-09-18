@@ -9,12 +9,19 @@
 # Structure
 
 - `Wayroo.Payments.API` — the read API (ECS Fargate, `payments.luci-{env}`, net10). Unauthenticated: it
-  trusts the calling composite. Two controllers — recorded provider configurations, and merchant
-  accounts (balance + account refresh). Controllers are HTTP only — provider selection and the
+  trusts the calling composite. Three controllers — recorded provider configurations, merchant
+  accounts (balance + account refresh), and Adyen onboarding (open a store's accounts, plus a `302`
+  to Adyen's hosted onboarding). Controllers are HTTP only — provider selection and the
   provider calls themselves live in `Wayroo.Payments.BusinessLogic`, so adding a provider never touches
   a controller. Adding a required config value means adding it to `EnvironmentVariableKeys.cs` **and** to
   the `Environment` dictionary in `Wayroo.Payments.Infrastructure/Resources/PaymentsAPI.cs`, or the API
-  fails startup validation in ECS.
+  fails startup validation in ECS. Everything in `EnvironmentVariableKeys` is required in **every**
+  environment, so anything provisioned for only some of them does not belong there — the ProPay
+  per-tenant credentials and the Adyen credentials are both read from Parameter Store paths instead.
+  Adyen additionally sits behind `Adyen:Enabled`, off by default: while it is off nothing Adyen is
+  registered and the onboarding endpoints refuse as an unsupported provider; when it is on, every
+  Adyen credential is validated at startup so a missing one fails the deploy rather than a merchant's
+  first request.
 - **No direct dependency on another Wayroo service.** This service talks to its payment providers, its
   own DynamoDB table, and the event buses — never to Luci.Orders or any sibling API. Anything it has
   not been told, it does not go and fetch: a store whose provider account reference it holds no record

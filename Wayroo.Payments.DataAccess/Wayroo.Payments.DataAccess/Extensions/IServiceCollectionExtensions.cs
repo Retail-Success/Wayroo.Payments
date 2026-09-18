@@ -25,6 +25,7 @@ public static class IServiceCollectionExtensions
 
         services.ConfigureDynamoDb(configuration);
         services.TryAddSingleton<IPaymentConfigurationRepository, PaymentConfigurationRepository>();
+        services.TryAddSingleton<IAdyenAccountRepository, AdyenAccountRepository>();
         return services;
     }
 

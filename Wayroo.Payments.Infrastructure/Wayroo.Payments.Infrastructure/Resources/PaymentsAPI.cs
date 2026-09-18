@@ -180,6 +180,10 @@ internal class PaymentsAPI
                 // PropayApiBaseUrisOptions plays in Luci.Orders, and NOT something Parameter Store
                 // holds. They come in as stack parameters because `environment` is a token here, so
                 // each environment must supply its own literal through the pipeline variables.
+                // Parameter Store path holding the Adyen credentials, alongside ProPay's and for the
+                // same reason. Nothing is provisioned there yet, and nothing needs to be: the path is
+                // read only when Adyen:Enabled is set, and until then this is inert.
+                ["Adyen:SecretsPath"] = $"/luci/{environment}/vendors/adyen",
                 ["PropayApiBaseUrisOptions:PropayRest"] = propayRestBaseUri,
                 ["PropayApiBaseUrisOptions:PropayXml"] = propayXmlBaseUri,
                 ["PropayApiBaseUrisOptions:ProtectPayRest"] = protectPayRestBaseUri,
