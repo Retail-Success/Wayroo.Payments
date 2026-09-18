@@ -21,6 +21,24 @@ namespace Wayroo.Payments.BusinessLogic.Gateways.Adyen;
 public class AdyenGatewayOptions
 {
     /// <summary>
+    /// Whether this host talks to Adyen at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Off by default, and deliberately a switch rather than an inference from whether the
+    /// credentials happen to be present. Adyen credentials do not exist in every environment yet, and
+    /// a host that guessed from configuration would start happily with Adyen silently disabled — the
+    /// exact failure the startup validation exists to prevent.
+    /// </para>
+    /// <para>
+    /// So: while this is off, nothing Adyen is registered and an Adyen request is refused as an
+    /// unsupported provider. Once it is on, every credential is validated at startup and a missing one
+    /// fails the deployment rather than a merchant's first request.
+    /// </para>
+    /// </remarks>
+    public bool Enabled { get; set; }
+
+    /// <summary>
     /// The API key for Legal Entity Management — legal entities, business lines, hosted onboarding
     /// links, terms of service.
     /// </summary>

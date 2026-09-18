@@ -85,4 +85,47 @@ public interface IClient
         [Body] RefreshPaymentAccountRequest? request = null,
         string? providerId = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Opens whichever of the store's Adyen accounts do not exist yet, and reports where onboarding
+    /// now stands.
+    /// </summary>
+    /// <remarks>
+    /// <b>Safe to call again.</b> Each step is skipped if its identifier is already recorded, so a
+    /// call that timed out halfway or a caller that retried converges on one set of accounts rather
+    /// than a second set. A fully onboarded store makes no calls to Adyen at all. Success does not
+    /// mean the store can be paid — it means the accounts exist and their capabilities have been
+    /// requested; verification is reported later, over webhooks.
+    /// </remarks>
+    /// <param name="tenantId">The tenant the store sells for; decides the industry, currency and merchant account.</param>
+    /// <param name="storeId">The store to onboard.</param>
+    /// <param name="seller">Who the seller is — the little Adyen needs to open a legal entity.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [Post("/api/payments/v1.0/tenants/{tenantId}/stores/{storeId}/adyen/onboarding")]
+    Task<AdyenAccount> OnboardStore(
+        long tenantId,
+        long storeId,
+        [Body] AdyenSellerDetails seller,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches the redirect to Adyen's hosted onboarding page for the store's seller.
+    /// </summary>
+    /// <remarks>
+    /// The endpoint answers with a <c>302</c>, so a client that follows redirects will follow it to
+    /// Adyen. Callers that need the destination itself should disable redirect following and read the
+    /// <c>Location</c> header — and then treat it as a credential, because it authenticates the
+    /// seller into their own onboarding session. A store that has not been onboarded answers
+    /// <c>404</c>.
+    /// </remarks>
+    /// <param name="tenantId">The tenant the store sells for.</param>
+    /// <param name="storeId">The store whose seller is onboarding.</param>
+    /// <param name="redirectUrl">Where Adyen returns the seller when they finish. Optional.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    [Get("/api/payments/v1.0/tenants/{tenantId}/stores/{storeId}/adyen/onboarding/link")]
+    Task<HttpResponseMessage> GetAdyenOnboardingLink(
+        long tenantId,
+        long storeId,
+        string? redirectUrl = null,
+        CancellationToken cancellationToken = default);
 }

@@ -36,6 +36,12 @@ internal static class Routes
     // genuinely need to reach a specific provider pass it as an optional query parameter.
     public const string AccountsRoute = $"{BaseRoute}/tenants/{{tenantId}}/stores/{{storeId}}/account";
 
+    // Names the provider, unlike the account route. Opening an Adyen account is not a
+    // provider-neutral operation and never will be: ProPay has no legal entities and Adyen has no
+    // sub-merchant accounts, so a caller asking for this is asking for Adyen specifically.
+    public const string AdyenOnboardingRoute =
+        $"{BaseRoute}/tenants/{{tenantId}}/stores/{{storeId}}/adyen/onboarding";
+
     /// <summary>
     /// The liveness probe. <b>Deployed contract:</b> the ECS container health check in
     /// <c>Wayroo.Payments.Infrastructure/Resources/PaymentsAPI.cs</c> curls this literal path, so

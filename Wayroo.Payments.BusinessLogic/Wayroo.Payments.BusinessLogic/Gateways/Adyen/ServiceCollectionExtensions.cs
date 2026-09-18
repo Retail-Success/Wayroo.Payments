@@ -5,7 +5,9 @@ using Adyen.Core.Options;
 using Adyen.LegalEntityManagement.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Wayroo.Payments.BusinessLogic.Managers;
 using BalancePlatformClient = Adyen.BalancePlatform.Client;
 using LegalEntityClient = Adyen.LegalEntityManagement.Client;
 
@@ -31,6 +33,22 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+
+        // Registered in every host so the endpoints behave the same everywhere; what changes is
+        // whether they can do anything. A host with Adyen off refuses as an unsupported provider
+        // rather than failing to resolve a dependency mid-request.
+        services.TryAddScoped<IAdyenOnboardingManager, AdyenNotEnabledManager>();
+
+        if (!configuration.GetSection(AdyenGatewayConfigurationKeys.Section)
+                .GetValue<bool>(nameof(AdyenGatewayOptions.Enabled)))
+        {
+            return services;
+        }
+
+        // From here on Adyen is switched on, so every credential is validated at startup — a missing
+        // one fails the deployment instead of a merchant's first request.
+        services.RemoveAll<IAdyenOnboardingManager>();
+        services.AddScoped<IAdyenOnboardingManager, AdyenOnboardingManager>();
 
         services
             .AddOptions<AdyenGatewayOptions>()

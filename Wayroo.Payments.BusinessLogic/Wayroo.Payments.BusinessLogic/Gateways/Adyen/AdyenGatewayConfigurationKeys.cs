@@ -10,6 +10,18 @@ public static class AdyenGatewayConfigurationKeys
     /// <summary>The section holding every Adyen setting.</summary>
     public const string Section = "Adyen";
 
+    /// <summary>Whether this host talks to Adyen at all. Optional; off otherwise.</summary>
+    public const string Enabled = $"{Section}:{nameof(AdyenGatewayOptions.Enabled)}";
+
+    /// <summary>
+    /// The Parameter Store path the Adyen credentials are read from. Optional.
+    /// </summary>
+    /// <remarks>
+    /// A path rather than the secrets themselves, matching how the ProPay credentials are sourced:
+    /// they exist only in Parameter Store, because they must never be committed.
+    /// </remarks>
+    public const string SecretsPath = $"{Section}:SecretsPath";
+
     /// <summary>The Legal Entity Management API key. Required.</summary>
     public const string LegalEntityApiKey = $"{Section}:{nameof(AdyenGatewayOptions.LegalEntityApiKey)}";
 

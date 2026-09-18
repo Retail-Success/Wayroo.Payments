@@ -4,7 +4,12 @@ using AwesomeAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Moq;
+using Wayroo.Payments.BusinessLogic.Extensions;
+using Wayroo.Payments.BusinessLogic.Gateways;
 using Wayroo.Payments.BusinessLogic.Gateways.Adyen;
+using Wayroo.Payments.BusinessLogic.Managers;
+using Wayroo.Payments.Models;
 
 namespace Wayroo.Payments.BusinessLogic.UnitTests.Gateways.Adyen;
 
@@ -34,6 +39,7 @@ public class AdyenGatewayWiringTests
     {
         var settings = new Dictionary<string, string?>
         {
+            [AdyenGatewayConfigurationKeys.Enabled] = "true",
             [AdyenGatewayConfigurationKeys.LegalEntityApiKey] = "lem-key",
             [AdyenGatewayConfigurationKeys.BalancePlatformApiKey] = "bcl-key",
             [AdyenGatewayConfigurationKeys.BalancePlatformId] = "RetailSuccess",
@@ -46,6 +52,7 @@ public class AdyenGatewayWiringTests
 
         var services = new ServiceCollection();
         services.AddLogging();
+        AddDataAccessStubs(services);
         services.AddAdyenAccountGateway(configuration);
 
         return services.BuildServiceProvider();
@@ -163,12 +170,97 @@ public class AdyenGatewayWiringTests
     public void TheReferenceEnvironment_IsSeparateFromTheAdyenEnvironment()
     {
         using var provider = Provider(
-            (AdyenGatewayConfigurationKeys.ReferenceEnvironment, nameof(Models.AdyenReferenceEnvironment.Qa)));
+            (AdyenGatewayConfigurationKeys.ReferenceEnvironment, nameof(AdyenReferenceEnvironment.Qa)));
 
         var options = provider.GetRequiredService<IOptions<AdyenGatewayOptions>>().Value;
 
-        options.ReferenceEnvironment.Should().Be(Models.AdyenReferenceEnvironment.Qa);
+        options.ReferenceEnvironment.Should().Be(AdyenReferenceEnvironment.Qa);
         options.UseLiveEndpoints.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// A host with Adyen switched off must still start, and must still answer. Nothing Adyen is
+    /// registered, so the endpoints resolve the stand-in and refuse as an unsupported provider —
+    /// rather than failing to resolve a dependency in the middle of a request, which reaches the
+    /// caller as a 500 and reads like an outage.
+    /// </summary>
+    [Fact]
+    public void WithAdyenSwitchedOff_TheOnboardingEndpointsStillResolveAndRefuse()
+    {
+        using var provider = Disabled();
+
+        var manager = provider.GetRequiredService<IAdyenOnboardingManager>();
+
+        manager.Should().BeOfType<AdyenNotEnabledManager>();
+
+        var onboard = async () => await manager.Onboard(
+            4,
+            31610,
+            new AdyenSellerDetails(),
+            CancellationToken.None);
+
+        onboard.Should().ThrowAsync<PaymentProviderNotSupportedException>();
+    }
+
+    /// <summary>
+    /// The reason the switch exists rather than inferring from whether credentials happen to be
+    /// present: a host that never calls Adyen must not be refused a deployment over credentials it
+    /// does not need. Nothing is provisioned for Adyen in most environments yet.
+    /// </summary>
+    [Fact]
+    public void WithAdyenSwitchedOff_MissingCredentialsDoNotFailStartup()
+    {
+        var start = () =>
+        {
+            using var provider = Disabled();
+            return provider.GetRequiredService<IAdyenOnboardingManager>();
+        };
+
+        start.Should().NotThrow();
+    }
+
+    /// <summary>
+    /// And the other half of the bargain: once it is on, a missing credential fails the deployment
+    /// rather than a merchant's first request.
+    /// </summary>
+    [Fact]
+    public void WithAdyenSwitchedOn_TheRealManagerIsRegistered()
+    {
+        using var provider = Provider();
+
+        provider.GetRequiredService<IAdyenOnboardingManager>()
+            .Should().BeOfType<AdyenOnboardingManager>();
+    }
+
+    private static ServiceProvider Disabled()
+    {
+        // ProPay's own configuration, because a host with Adyen off is still a working ProPay host and
+        // the stand-in reports which providers this service does reach.
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [PaymentGatewayConfigurationKeys.PropayRestBaseUrl] = "https://propay.test/rest",
+                [PaymentGatewayConfigurationKeys.PropayXmlBaseUrl] = "https://propay.test/xml",
+                [PaymentGatewayConfigurationKeys.ProtectPayRestBaseUrl] = "https://protectpay.test/rest",
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        AddDataAccessStubs(services);
+        services.AddPaymentsBusinessLogic(configuration);
+        services.AddAdyenAccountGateway(configuration);
+
+        return services.BuildServiceProvider();
+    }
+
+    // The repositories belong to the data-access tier, which a real host registers before either of
+    // these extension methods. Stubbed so the container can be built and what is under test here —
+    // which services get registered — is what fails, rather than a missing sibling tier.
+    private static void AddDataAccessStubs(IServiceCollection services)
+    {
+        services.AddSingleton(new Mock<IPaymentConfigurationRepository>().Object);
+        services.AddSingleton(new Mock<IAdyenAccountRepository>().Object);
     }
 
     /// <summary>
